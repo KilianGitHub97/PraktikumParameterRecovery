@@ -1,0 +1,24 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1592230356979.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "C45257E6",
+    "lastKnownWriteTime" : 1592230370,
+    "last_content_update" : 1592230370344,
+    "path" : "~/R/PraktikumParameterRecovery/Parameter Recovery/Main.R",
+    "project_path" : "Main.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
