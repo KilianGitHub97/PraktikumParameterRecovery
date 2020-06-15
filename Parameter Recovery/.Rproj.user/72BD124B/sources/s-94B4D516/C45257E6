@@ -5,13 +5,15 @@
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "0",
+    "hash" : "3550724507",
     "id" : "C45257E6",
-    "lastKnownWriteTime" : 1592230370,
-    "last_content_update" : 1592230370344,
+    "lastKnownWriteTime" : 1592230446,
+    "last_content_update" : 1592230446313,
     "path" : "~/R/PraktikumParameterRecovery/Parameter Recovery/Main.R",
     "project_path" : "Main.R",
     "properties" : {
+        "cursorPosition" : "1,0",
+        "scrollLine" : "0",
         "tempName" : "Untitled1"
     },
     "read_only" : false,
