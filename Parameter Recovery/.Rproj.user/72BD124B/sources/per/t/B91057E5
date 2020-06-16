@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1592289418597.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3471618286",
+    "id" : "B91057E5",
+    "lastKnownWriteTime" : 1592318222,
+    "last_content_update" : 1592318222784,
+    "path" : "~/R/PraktikumParameterRecovery/Parameter Recovery/data.table.R",
+    "project_path" : "data.table.R",
+    "properties" : {
+        "cursorPosition" : "66,0",
+        "docOutlineVisible" : "0",
+        "scrollLine" : "56"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
