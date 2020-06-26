@@ -1,9 +1,9 @@
 {
-    "path" : "~/R/PraktikumParameterRecovery/Parameter Recovery",
-    "sortOrder" : [
+    "path": "~/R/PraktikumParameterRecovery/Parameter Recovery",
+    "sortOrder": [
         {
-            "ascending" : true,
-            "columnIndex" : 2
+            "ascending": true,
+            "columnIndex": 2
         }
     ]
 }
