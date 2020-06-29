@@ -1,4 +1,4 @@
-install.packages("devtools", dependencies = TRUE)
+install.packages("", dependencies = TRUE)
 
 # Libraries ---------------------------------------------------------------
 library(cognitivemodels)
@@ -7,28 +7,12 @@ library(foreach)
 library(doParallel)
 library(data.table)
 library(broom)
-#library(janitor)
-# data frame --------------------------------------------------------------
-registerDoParallel(16)
+library(plotly)
 
-data_raw_shepard <- data.frame(
-  size = as.factor( c("small", "small", "small", "small", "large", "large", "large", "large" )), # c(small, large)
-  shape = as.factor( c("triangle", "triangle", "square", "square", "triangle", "triangle", "square", "square" )), # c(triangle, square)
-  color = as.factor( c("black", "white", "black", "white", "black", "white", "black", "white")), # c(black, white)
-  Kategorie_1 = c(0, 1, 0, 1, 0, 1, 0, 1), # c(0, 1)
-  Kategorie_2 = c(0, 1, 1, 0, 0, 1, 1, 0), # c(0, 1)
-  Kategorie_3 = c(0, 0, 1, 1, 0, 1, 0, 1), # c(0, 1)
-  Kategorie_4 = c(0, 1, 1, 1, 0, 0, 0, 1), # c(0, 1)
-  Kategorie_5 = c(0, 1, 1, 0, 0, 1, 0, 1), # c(0, 1)
-  Kategorie_6 = c(1, 0, 0, 1, 0, 1, 1, 0) # c(0, 1)
-)
+# data nosofsky -----------------------------------------------------------
 
 #convert factors to doubles
-data_shep <- data_raw %>% 
-  mutate( size = recode(size, "small" = 0, "large" = 1),
-          shape = recode(shape, "triangle" = 0, "square" = 1),
-          color = recode(color, "black" = 0, "white" = 1)) %>%
-  mutate(y = NA)
+
 
 ## Infos zu Nosofsky1989
       # stim_id =  ID des Stimulus, jeder der 16 Stimulus (siehe Nosofsky) hat eine ID 
@@ -45,9 +29,6 @@ data_shep <- data_raw %>%
 nosofsky1989 <- copy(nosofsky1989)
 nosofsky1989 <- setDT(nosofsky1989)
 
-
-
-# Inspect Data Frames -----------------------------------------------------
 head(nosofsky1989)
 glimpse(nosofsky1989)
 
@@ -58,8 +39,6 @@ nosofsky1989 %>%
 
 #Anzahl, mit der jeder Stimulus präsentiert wurde
 nosofsky1989[, list(Total_Prä = sum(N)), keyby = stim_id]
-
-gcm(formula = pobs ~ angle + size, class = ~true_cat, , choicerule = "none", data = nosofsky1989)
 
 # Task 1 ------------------------------------------------------------------
 
@@ -74,8 +53,8 @@ fr <- expand.grid(0:1, 0:1, 0:1, 0:1)
 #counter für for-loop
 l <- 1
 
-#Erstelle alle möglichen Kombinationen von 0 und 1 in einem datensatz mit 4 Variablen [LIMITATIONEN: Die Dimensionen sind binär (0 und 1) und 
-# es gibt keine NA Werte im Kriterium. GRUND: Ich wollte meinen Rechner übernacht nicht laufen lassen]
+#Erstelle alle möglichen Kombinationen von 0 und 1 in einem datensatz mit 4 Variablen [LIMITATIONEN: Die Dimensionen sind binär 
+#(0 und 1) und es gibt keine NA Werte im Kriterium. GRUND: Ich wollte meinen Rechner über die Nacht nicht laufen lassen]
 for(i in 1:16) {
   for (j in 1:16) {
     for (k in 1:16) {
@@ -97,7 +76,7 @@ for(i in 1:16) {
 
 ## alle Elemente der List durch das GCM rendern und in Datensatz data.1 speichern
 
-#alle 4 Kerne registrieren, für Parallelisierten For loop
+#alle 4 Kerne registrieren, für parallelisierten For loop
 registerDoParallel(4)
 
 # Parallelisierter For loop der alle Koeffizienten, AIC, BIC und LOGLIK für jeden Datensatz erfasst
@@ -145,7 +124,7 @@ dat2 <- dat1
 # Die Fit-Indizes betrachten. 
 
 #min und max von AIC, BIC und LOGLIK
-dat1 %>%
+dat1[65536] %>%
   summarise(
     MIN_AIC = min(AIC), 
     MAX_AIC = max(AIC),
@@ -175,37 +154,48 @@ allFrames[1093]
 
 
 #Verhalten des AIC
-ggplot( data = dat1,
-        mapping = aes(x = ID, y = AIC)) +
-  geom_line() +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID, y = AIC)) +
+    geom_line() +
+    theme_minimal()
+)
 
 #Verhalten des BIC
-ggplot( data = dat1,
-        mapping = aes(x = ID, y = BIC)) +
-  geom_line() +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID, y = BIC)) +
+    geom_line() +
+    #xlim(2000,3000)+
+    theme_minimal()
+)
 
 # Korrelation des Verhalten (identisch)
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = BIC, color = "red")) +
-  geom_line(aes(y = AIC, color = "blue")) + 
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = BIC, color = "red")) +
+    geom_line(aes(y = AIC, color = "blue")) + 
+    theme_minimal()
+)
 
 # Verhalten der Loglik
-ggplot( data = dat1,
-        mapping = aes(x = ID, y = LOGLIK)) +
-  geom_line() +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID, y = LOGLIK)) +
+    geom_line() +
+    theme_minimal()
+)
 
 # Korrelation der drei Parameter
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = BIC, color = "red")) +
-  geom_line(aes(y = AIC, color = "blue")) +
-  geom_line(aes(y = LOGLIK, color = "green")) + 
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = BIC, color = "red")) +
+    geom_line(aes(y = AIC, color = "blue")) +
+    geom_line(aes(y = LOGLIK, color = "green")) + 
+    theme_minimal()
+)
 
 
 # Untersuchung von Lambda, r, q, Var1 und Var2
@@ -253,70 +243,88 @@ allFrames[3795]
 allFrames[2404]
 
 # Lambda ist meistens nahe 1 oder 10
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = lambda, color = "red")) +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = lambda, color = "red")) +
+    theme_minimal()
+)
 
 
 # r ist meist nahe 1 und 2 (Manhattan, Euklidisch)
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = r, color = "red")) +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = r, color = "red")) +
+    theme_minimal()
+)
 
 # q hat dasselbe Muster wie r
-ggplot( data = dat1,
-mapping = aes(x = ID)) +
-  geom_line(aes(y = q, color = "red")) +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+  mapping = aes(x = ID)) +
+    geom_line(aes(y = q, color = "red")) +
+    theme_minimal()
+)
 
 # r und q: Ähnlich, aber nicht identisch
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = r, color = "red")) +
-  geom_line(aes(y = q, color = "green")) +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = r, color = "red")) +
+    geom_line(aes(y = q, color = "green")) +
+    theme_minimal()
+)
 
 #Var1
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = Var1, color = "red")) +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = Var1, color = "red")) +
+    theme_minimal()
+)
 
 #Var2
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = Var1, color = "red")) +
-  theme_minimal()
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = Var1, color = "red")) +
+    theme_minimal()
+)
 
 #Var1 und Var2: Ähnlich, aber nicht identisch
-ggplot( data = dat1,
-        mapping = aes(x = ID)) +
-  geom_line(aes(y = Var1, color = "red")) +
-  geom_line(aes(y = Var2, color = "green")) +
-  theme_minimal()
-
-
-
-
+ggplotly(
+  ggplot( data = dat1,
+          mapping = aes(x = ID)) +
+    geom_line(aes(y = Var1, color = "red")) +
+    geom_line(aes(y = Var2, color = "green")) +
+    theme_minimal()
+)
 
 # Task 2 ------------------------------------------------------------------
-model <- gcm(formula = y ~ size + shape + color, choicerule = "none", class = ~ Kategorie_1, data = data)
-summary(model)
+#Datensatz mit Kategorien nach Shepard
+data_raw_shepard <- data.frame(
+  size = as.factor( c("small", "small", "small", "small", "large", "large", "large", "large" )), # c(small, large)
+  shape = as.factor( c("triangle", "triangle", "square", "square", "triangle", "triangle", "square", "square" )), # c(triangle, square)
+  color = as.factor( c("black", "white", "black", "white", "black", "white", "black", "white")), # c(black, white)
+  Kategorie_1 = c(0, 1, 0, 1, 0, 1, 0, 1), # c(0, 1)
+  Kategorie_2 = c(0, 1, 1, 0, 0, 1, 1, 0), # c(0, 1)
+  Kategorie_3 = c(0, 0, 1, 1, 0, 1, 0, 1), # c(0, 1)
+  Kategorie_4 = c(0, 1, 1, 1, 0, 0, 0, 1), # c(0, 1)
+  Kategorie_5 = c(0, 1, 1, 0, 0, 1, 0, 1), # c(0, 1)
+  Kategorie_6 = c(1, 0, 0, 1, 0, 1, 1, 0) # c(0, 1)
+)
+
+#Die Daten in numerische umwandeln
+data_shep <- data_raw_shepard %>% 
+  mutate( size = recode(size, "small" = 0, "large" = 1),
+          shape = recode(shape, "triangle" = 0, "square" = 1),
+          color = recode(color, "black" = 0, "white" = 1)) %>%
+  mutate(y = NA)
 
 
-
-# >Janas Modell -----------------------------------------------------------
-
-D <- data.frame(f1 = c(0,0,1,1,2,2,0,1,2),     # feature 1
-                f2 = c(0,1,2,0,1,2,0,1,2),     # feature 2
-                cl = c(0,1,0,0,1,0,NA,NA,NA),  # criterion/class
-                y = c(0,0,0,1,1,1,0,1,1))     # participant's responses
-
-M <- gcm(y ~ f1+f2, class= ~cl, D, choicerule = "none")
-
-summary(M)
-
-expand.grid(0:1, 0:1, 0:1)
-?expand.grid()
+#fitindizes sind bei allen Kategorien gleich
+for (i in 1:6) {
+  m <- gcm(formula = y ~ size + shape + color, choicerule = "none", class = ~ paste0("Kategorie_", i), data = data_shep)
+  print(summary(m))
+}
