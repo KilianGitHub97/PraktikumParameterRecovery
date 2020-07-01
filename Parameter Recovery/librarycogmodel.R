@@ -1,5 +1,5 @@
 install.packages("", dependencies = TRUE)
-
+install_github("janajarecki/cognitivemodels@development")
 # Libraries ---------------------------------------------------------------
 library(cognitivemodels)
 library(tidyverse)
@@ -8,9 +8,11 @@ library(doParallel)
 library(data.table)
 library(broom)
 library(plotly)
+library(devtools)
 
 # data nosofsky -----------------------------------------------------------
 
+??gcm
 #convert factors to doubles
 
 
@@ -109,7 +111,7 @@ write.csv(data.1,"D:\\Bibliotheken\\Dokumente\\R\\allpos.csv", row.names = FALSE
 
 ## Datensatz neu laden
 dat1_raw <- fread(input = "D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\allpos.csv")
-head(dat1, 15)
+head(dat1_raw, 15)
 
 #long in wide transformieren
 dat1 <- dat1_raw %>% spread(key = .rownames, value = Estimate)
@@ -124,7 +126,7 @@ dat2 <- dat1
 # Die Fit-Indizes betrachten. 
 
 #min und max von AIC, BIC und LOGLIK
-dat1[65536] %>%
+dat1 %>%
   summarise(
     MIN_AIC = min(AIC), 
     MAX_AIC = max(AIC),
@@ -151,7 +153,11 @@ dat1 %>%
 allFrames[51337]
 allFrames[1093]
 
-
+#Den Variationsalgorithmus verstehen: Hier die ersten 50 Datensätze
+for (i in 1:50) {
+  print(i)
+  print(allFrames[i])
+}
 
 #Verhalten des AIC
 ggplotly(
@@ -328,3 +334,18 @@ for (i in 1:6) {
   m <- gcm(formula = y ~ size + shape + color, choicerule = "none", class = ~ paste0("Kategorie_", i), data = data_shep)
   print(summary(m))
 }
+i <- 48567
+
+m <- gcm(data = allFrames[[i]][rep(1:4, 3),], formula = Var3 ~ Var1 + Var2, class = ~Var4, choicerule = "softmax", 
+         fix = list(lambda = 0.01, Var1 = 0.5, r = 1.5, q = 1.5))
+cbind(allFrames[[i]][rep(1:4, 3),], predict(m))
+m
+allFrames[1]
+m$par
+allFrames[[4856]]
+
+f <- allFrames[[4856]][rep(1:4, 3), ]
+
+rep(1:3, 2)
+
+?rbinom
