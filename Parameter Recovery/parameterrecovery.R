@@ -1,4 +1,4 @@
-
+install.packages("")
 # Libraries ---------------------------------------------------------------
 library(tidyverse)
 library(cognitivemodels)
@@ -7,6 +7,7 @@ library(seewave)
 library(doParallel)
 library(foreach)
 library(plotly)
+library(ggpubr)
 
 # Datensatz ---------------------------------------------------------------
 
@@ -97,7 +98,7 @@ printdet(Block = 4)
 # GCM mit freien Parametern
 
 # Schätzung der Parameter mit binval als Response Variable 
-newpar <- foreach(i = 1:6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %do% {
+newpar <- foreach(i = 1:6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
   a <- summary(gcm(data = data_shep_rbin[[i]], formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none"))
   
   b <- tidy(a$coefficients)
@@ -106,6 +107,16 @@ newpar <- foreach(i = 1:6, .combine = "rbind", .packages = c("cognitivemodels", 
 }
 #long to wide
 newpar <- newpar %>% spread(key = .rownames, value = Estimate)
+
+#in sauberen Datensatz verwandeln
+newpar$b0 <- unlist(newpar$b0)
+newpar$b1 <- unlist(newpar$b1)
+newpar$color <- unlist(newpar$color)
+newpar$lambda <- unlist(newpar$lambda)
+newpar$q <- unlist(newpar$q)
+newpar$r <- unlist(newpar$r)
+newpar$shape <- unlist(newpar$shape)
+newpar$size <- unlist(newpar$size)
 
 #Die gefixten und die geschätzten Parameter zusammenfügen: par
 a <- summary(gcm(data = allFrames[[1]], formula = y ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", fix = fixpar))
@@ -124,19 +135,22 @@ par <- rbind(newpar, oldpar)
 
 # Estimates with the first n = 1:7 rows removed -------------------------------
 
-#registerDoParallel(4)
+registerDoParallel(4)
 
 cutnewpar <- list()
 
+l = 1
+
 #For-loop der bei jedem Datensatz jeweils die erste (bis siebte) Zeile löscht und die Parameter in der List cutnewpar speichert
 for (j in 1:7) {
-  cutnewpar[[j]] <- foreach(i = 1:6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
+  cutnewpar[[l]] <- foreach(i = 1:6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
     a <- summary(gcm(data = tail(data_shep_rbin[[i]], -j), formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none"))
     
     b <- tidy(a$coefficients)
     
     b <- b %>% mutate(ID = i)
   }
+  l = l + 1
 }
 
 #for loop, der jedes Element der Liste cutnewpar von long zu wide transformiert und die gefixten Parameter anheftet
@@ -191,7 +205,6 @@ allcutpar$size <- unlist(allcutpar$size)
 allcutpar <- allcutpar %>%
   filter(b0 != is.na(NA)) %>%
   filter(r != 1.5)
-
 
 
 # Graphische Darstellung der Parameter Recovery ---------------------------
@@ -291,55 +304,108 @@ dist_allcutpar <- allcutpar %>%
   mutate(diff_shape = abs(0.33333 - allcutpar$shape)) %>%
   mutate(diff_size = abs(0.33333 - allcutpar$size))
 
-#Table, der ausgibt, wie gut die Parameter pro Block recovered wurden (ID = Anzahl der gesehenen Blöcke)
 dist_allcutpar %>%
-  group_by(ID) %>%
+  group_by(ID, number_of_deleted_values) %>%
   summarise(
-    Mean_b0 = mean(diff_b0), #           Mehr Blöcke führen  zu einer besseren Recovery
-    Mean_b1 = mean(diff_b1), #           Mehr Blöcke führen  zu einer besseren Recovery
-    Mean_color = mean(diff_color), #     Mehr Blöcke führen nicht zu einer besseren Recovery
-    Mean_lambda = mean(diff_lambda), #   Mehr Blöcke führen nicht zu einer besseren Recovery
-    Mean_q = mean(diff_q), #             Mehr Blöcke führen nicht zu einer besseren Recovery
-    Mean_r = mean(diff_r), #             Mehr Blöcke führen nicht zu einer besseren Recovery
-    Mean_shape = mean(diff_shape), #     Mehr Blöcke führen nicht zu einer besseren Recovery
-    Mean_size = mean(diff_size) #        Mehr Blöcke führen nicht zu einer besseren Recovery
-  )
-#die Werte sind die Mittelwerte des Betrags der Abweichungen von den ehemaligen, gefixten Werten
+    b0 = diff_b0, 
+    b1 = diff_b1, 
+    color =diff_color, 
+    lambda = diff_lambda, 
+    q = diff_q, 
+    r = diff_r, 
+    shape = diff_shape, 
+    size = diff_size 
+  ) %>%
+  print(n = 40)
 
-dist_allcutpar %>%
-  group_by(number_of_deleted_values) %>%
+
+
+# Bei newpar wurde keiner der Werte weggeschnitten
+dist_newpar <- newpar %>%
+  mutate(diff_b0 = abs(0.5 - newpar$b0)) %>%
+  mutate(diff_b1 = abs(0.5 - newpar$b1)) %>%
+  mutate(diff_color = abs(0.33334 - newpar$color)) %>%
+  mutate(diff_lambda = abs(1 - newpar$lambda)) %>%
+  mutate(diff_q = abs(1.5 - newpar$r)) %>%
+  mutate(diff_r = abs(1.5 - newpar$r)) %>%
+  mutate(diff_shape = abs(0.33333 - newpar$shape)) %>%
+  mutate(diff_size = abs(0.33333 - newpar$size))
+
+#Hier sind die Beträge der Abweichungen des geschätzten Parameters vom ursprünglichen Parameter pro Block zu sehen
+dist_newpar %>%
+  group_by(ID)%>%
   summarise(
-    Mean_b0 = mean(diff_b0), #           Mehr gelöschte Werte führen nicht zu einer besseren Recovery
-    Mean_b1 = mean(diff_b1), #           Mehr gelöschte Werte führen nicht zu einer besseren Recovery
-    Mean_color = mean(diff_color), #     Mehr gelöschte Werte führen nicht zu einer besseren Recovery
-    Mean_lambda = mean(diff_lambda), #   Mehr gelöschte Werte führen nicht zu einer besseren Recovery
-    Mean_q = mean(diff_q), #             Mehr gelöschte Werte führen nicht zu einer besseren Recovery
-    Mean_r = mean(diff_r), #             Mehr gelöschte Werte führen nicht zu einer besseren Recovery
-    Mean_shape = mean(diff_shape), #     Mehr gelöschte Werte führen nicht zu einer besseren Recovery
-    Mean_size = mean(diff_size) #        Mehr gelöschte Werte führen nicht zu einer besseren Recovery
+    b0 = diff_b0, 
+    b1 = diff_b1, 
+    color =diff_color, 
+    lambda = diff_lambda, 
+    q = diff_q,
+    r = diff_r, 
+    shape = diff_shape, 
+    size = diff_size 
   )
-#Es sollte keine Rolle spielen, dass wir einige Zeilen ausgeschlossen haben, da wir den Mittelwert berechen
+
+#Grafische Darstellung der Schätzfehler
+
+gg1 <- ggplot(data = dist_newpar,
+                 aes(x = diff_b0,
+                     y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic() 
+
+gg2 <- ggplot(data = dist_newpar,
+              aes(x = diff_b1,
+                  y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic() 
+
+gg3 <- ggplot(data = dist_newpar,
+              aes(x = diff_color,
+                  y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic() 
+
+gg4 <- ggplot(data = dist_newpar,
+              aes(x = diff_lambda,
+                  y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic() 
+
+gg5 <- ggplot(data = dist_newpar,
+              aes(x = diff_q,
+                  y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic() 
+
+gg6 <- ggplot(data = dist_newpar,
+              aes(x = diff_r,
+                  y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic()
+
+gg7 <- ggplot(data = dist_newpar,
+              aes(x = diff_shape,
+                  y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic() 
+
+gg8 <- ggplot(data = dist_newpar,
+              aes(x = diff_size,
+                  y = ID)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic() 
+
+#jeder Plot zeigt an, wie sich die Schätzungen abhängig von der Anzahl Blöcke verändern [Wichtig ist aber, dass die Punkte beachtet werden!]
+plot1 <- ggarrange(gg1, gg2, gg3, gg4, gg5, gg6, gg7, gg8)
 
 
 
 
-
-
-
-
-
-
-
-#Mache Prediktionen und verwandle diese mit rbinom in diskrete daten
-
-#Hänge diese Daten an den Shepard simulierten datensatz (rbinom) dran
-
-#Erstelle ein Weiteres Modell, mit dem neuen Datensatz, bei dem keine Parameter gefixt sind, das also die simulierten Daten als Response (y) nimmt
-
-#Vergleiche die Geschätzten Daten mit
-#Ähnlichkeit der beiden Verteilungen mit Kullback-Leibler Divergenz, ich bin mir aber nicht sicher, ob die in unserem Fall angewendet werden sollte. 
-#Je höher der Wert, desto unähnlicher die beiden Spalten. 
-
-#Mit vershcieden Längen und anderen Parameter 
-
-#Wollen wir den ersten Block ignorierr ? (Da die Präd sehr uninformativ sind)
