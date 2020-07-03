@@ -30,25 +30,14 @@ data_shep <- data_raw_shepard %>%
   mutate(y = NA)
 
 
-# 6 data.frames with repetitive Blocks ------------------------------------
-
-#shepard datensatz mit rep auf 5 skalieren
-
-#List für die Datensätze
-allFrames <- list()
-
-#For-Loop der den Datensatz mit bis zu sechs Blöcken erweitert. 
-for (i in 1:6) {
-  allFrames[[i]] <- data_shep[rep(1:8, i), ]
-}
-
-
 # Calculating binominal coefficients and adding them to the shepar --------
 
 #liste mit gefixten Parametern erstellen mit neutralen Werten (lambda = 1)
-fixpar <- list(lambda = 1, size = 0.33333, shape = 0.33333, color = 0.33334, r = 1.5, q = 1.5)
+fixpar <- list(lambda = 7, size = 0.33333, shape = 0.33333, color = 0.33334, r = 1.5, q = 1.5)
 
 ##Erstelle ein Modell, dass die Daten von Shepard mit den Parametern simuliert
+allFrames <- list()
+
 models = list()
 
 preddata = list()
@@ -60,8 +49,11 @@ data_shep_rbin <- list()
 kldiv <- list()
 
 for (i in 1:6) {
+  #Den Datensatz mit bis zu sechs Blöcken erweitern
+  allFrames[[i]] <- data_shep[rep(1:8, i), ]
+  
   #Modell mit fixen Parametern und für Kategorie_1
-  models[[i]] <- gcm(data = allFrames[[i]], formula = y ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
+  models[[i]] <- gcm(data = allFrames[[i]], formula = ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
                      fix = fixpar) 
   
   #Datensatz mit den gelernten Prädiktionen  
@@ -91,11 +83,12 @@ printdet <- function(Block) {
 }
 
 #alle wichtigen Daten zu Block 4 ausgeben:
-printdet(Block = 4)
+# printdet(Block = 4)
 
 # Comparing fixed and fitted parameters -----------------------------------
 
 # GCM mit freien Parametern
+registerDoParallel(4)
 
 # Schätzung der Parameter mit binval als Response Variable 
 newpar <- foreach(i = 1:6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
@@ -135,8 +128,6 @@ par <- rbind(newpar, oldpar)
 
 # Estimates with the first n = 1:7 rows removed -------------------------------
 
-registerDoParallel(4)
-
 cutnewpar <- list()
 
 l = 1
@@ -152,6 +143,15 @@ for (j in 1:7) {
   }
   l = l + 1
 }
+
+#Hat das cutting funktioniert?
+cutwork <- function(reps, cut){
+  s<- gcm(data = tail(data_shep_rbin[[reps]], -cut), formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none")
+  
+  cbind(tail(data_shep_rbin[[reps]], -cut), predict(s)) 
+}
+
+# cutwork(reps = 4, cut = 4)
 
 #for loop, der jedes Element der Liste cutnewpar von long zu wide transformiert und die gefixten Parameter anheftet
 names <- c("ID", "b0", "b1", "color", "lambda", "q", "r", "shape", "size")
@@ -205,7 +205,6 @@ allcutpar$size <- unlist(allcutpar$size)
 allcutpar <- allcutpar %>%
   filter(b0 != is.na(NA)) %>%
   filter(r != 1.5)
-
 
 # Graphische Darstellung der Parameter Recovery ---------------------------
 
@@ -318,6 +317,75 @@ dist_allcutpar %>%
   ) %>%
   print(n = 40)
 
+#Grafische Darstellung der Schätzfehler mit Beschneidung
+ggdist_allcutpar <- dist_allcutpar %>%
+  select(contains("diff"), ID, number_of_deleted_values) %>%
+  arrange(ID)
+
+ggb0 <- ggplot(data = ggdist_allcutpar,
+              aes(x = diff_b0,
+                  y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
+ggb1 <- ggplot(data = ggdist_allcutpar,
+               aes(x = diff_b1,
+                   y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
+ggcolor <- ggplot(data = ggdist_allcutpar,
+                  aes(x = diff_color,
+                      y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
+gglambda <- ggplot(data = ggdist_allcutpar,
+                   aes(x = diff_lambda,
+                       y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
+ggq <- ggplot(data = ggdist_allcutpar,
+              aes(x = diff_q,
+                  y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
+ggr <- ggplot(data = ggdist_allcutpar,
+              aes(x = diff_r,
+                  y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
+ggshape <- ggplot(data = ggdist_allcutpar,
+                  aes(x = diff_shape,
+                      y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
+ggsize <- ggplot(data = ggdist_allcutpar,
+       aes(x = diff_b1,
+           y = number_of_deleted_values )) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~ID) +
+  theme_classic()
+
 
 
 # Bei newpar wurde keiner der Werte weggeschnitten
@@ -345,7 +413,7 @@ dist_newpar %>%
     size = diff_size 
   )
 
-#Grafische Darstellung der Schätzfehler
+#Grafische Darstellung der Schätzfehler ohne Beschneidung
 
 gg1 <- ggplot(data = dist_newpar,
                  aes(x = diff_b0,
