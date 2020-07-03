@@ -1,5 +1,6 @@
-install.packages("")
+install.packages("doNWS")
 # Libraries ---------------------------------------------------------------
+library(data.table)
 library(tidyverse)
 library(cognitivemodels)
 library(broom)
@@ -9,26 +10,98 @@ library(foreach)
 library(plotly)
 library(ggpubr)
 
+
+# Setup -------------------------------------------------------------------
+discounts <- 1:2#0:8
+nblocks <- 2 #später 1:6
+types <- 1#1:6
+true_pars <- expand.grid(lambda = 1:2, 
+                        size = c(0.2, 0.5, 0.8), 
+                        shape = c(0.2, 0.5, 0.8), 
+                        r = 1, 
+                        q = 1, 
+                        b0 = 0.5, 
+                        tau = c(0.1, 1, 2))
+true_pars <- true_pars[1,]
+runs <- 1:5
+#wie probab. die handlöung ungesetzt wird = tau
+
 # Datensatz ---------------------------------------------------------------
 
 data_raw_shepard <- data.frame(
   size = as.factor( c("small", "small", "small", "small", "large", "large", "large", "large" )), # c(small, large)
   shape = as.factor( c("triangle", "triangle", "square", "square", "triangle", "triangle", "square", "square" )), # c(triangle, square)
   color = as.factor( c("black", "white", "black", "white", "black", "white", "black", "white")), # c(black, white)
-  Kategorie_1 = c(0, 1, 0, 1, 0, 1, 0, 1), # c(0, 1)
-  Kategorie_2 = c(0, 1, 1, 0, 0, 1, 1, 0), # c(0, 1)
-  Kategorie_3 = c(0, 0, 1, 1, 0, 1, 0, 1), # c(0, 1)
-  Kategorie_4 = c(0, 1, 1, 1, 0, 0, 0, 1), # c(0, 1)
-  Kategorie_5 = c(0, 1, 1, 0, 0, 1, 0, 1), # c(0, 1)
-  Kategorie_6 = c(1, 0, 0, 1, 0, 1, 1, 0) # c(0, 1)
+  cat_1 = c(0, 1, 0, 1, 0, 1, 0, 1), # c(0, 1)
+  cat_2 = c(0, 1, 1, 0, 0, 1, 1, 0), # c(0, 1)
+  cat_3 = c(0, 0, 1, 1, 0, 1, 0, 1), # c(0, 1)
+  cat_4 = c(0, 1, 1, 1, 0, 0, 0, 1), # c(0, 1)
+  cat_5 = c(0, 1, 1, 0, 0, 1, 0, 1), # c(0, 1)
+  cat_6 = c(1, 0, 0, 1, 0, 1, 1, 0) # c(0, 1)
 )
 
 data_shep <- data_raw_shepard %>% 
   mutate( size = recode(size, "small" = 0, "large" = 1),
           shape = recode(shape, "triangle" = 0, "square" = 1),
-          color = recode(color, "black" = 0, "white" = 1)) %>%
-  mutate(y = NA)
+          color = recode(color, "black" = 0, "white" = 1))
 
+
+# Simulate ----------------------------------------------------------------
+# List with results
+results <- list()
+
+l = 1
+for (discount in discounts) {
+  for (nblock in nblocks) {
+    for (type in types) {
+      for (row in 1:nrow(true_pars)) {
+        true_par <- true_pars[row, ]
+        data <- data_shep[rep(1:nrow(data_shep), nblock),]
+        model <- gcm(data = data,
+                           formula = ~ size + shape + color, 
+                           class = paste("cat", type, sep = "_"), 
+                           choicerule = "softmax", 
+                           fix = true_par, 
+                           discount = 0)
+        predictions <- predict(model)
+        for (run in runs) {
+          data$simulations <- rbinom(length(predictions) , 1, predictions)
+          
+          fitted_model <- gcm(data = data,
+                              formula = simulations ~ size + shape + color, 
+                              class = paste("cat", type, sep = "_"), 
+                              choicerule = "softmax", 
+                              discount = discount)
+          results[[l]] <- data.table(
+            run = run,
+            discount = discount,
+            nblock = nblock,
+            type = type,
+            row = row,
+            names = names(coef(fitted_model)),
+            par = coef(fitted_model),
+            true_par = model$get_par("all"),
+            convergence = fitted_model$fitobj$convergence
+          )
+          l = l + 1
+        }
+        
+      }
+      
+    }
+    
+  }
+  
+}
+results <- rbindlist(results, id = "id")
+results
+ggplot(data = results,
+       mapping = aes(x = true_par,
+                     y = par)) +
+  geom_point() +
+  facet_wrap(~names)
+#
+# rbinom(): n = number of observations // size = max possible value // prob = Probability of either 1 or 2
 
 # Calculating binominal coefficients and adding them to the shepar --------
 
@@ -54,7 +127,7 @@ for (i in 1:6) {
   
   #Modell mit fixen Parametern und für Kategorie_1
   models[[i]] <- gcm(data = allFrames[[i]], formula = ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
-                     fix = fixpar) 
+                     fix = fixpar, discount = 8) 
   
   #Datensatz mit den gelernten Prädiktionen  
   preddata[[i]] <- cbind(allFrames[[i]], predict(models[[i]])) 
@@ -81,7 +154,13 @@ printdet <- function(Block) {
   print(data_shep_rbin[Block]);
   print(kldiv[Block])
 }
+#models1 <- gcm(data = allFrames[[i]], formula = ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
+                   fix = fixpar, discount = 8) 
 
+#models2 <- gcm(data = allFrames[[i]], formula = ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
+               fix = fixpar, discount = 1)
+
+models[[1]]$discount
 #alle wichtigen Daten zu Block 4 ausgeben:
 # printdet(Block = 4)
 
@@ -134,16 +213,26 @@ l = 1
 
 #For-loop der bei jedem Datensatz jeweils die erste (bis siebte) Zeile löscht und die Parameter in der List cutnewpar speichert
 for (j in 1:7) {
-  cutnewpar[[l]] <- foreach(i = 1:6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
-    a <- summary(gcm(data = tail(data_shep_rbin[[i]], -j), formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none"))
-    
-    b <- tidy(a$coefficients)
-    
-    b <- b %>% mutate(ID = i)
+  # cutnewpar[[j]] <- foreach(i = 6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
+  #   model <- gcm(data = data_shep_rbin[[i]], formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
+  #       discount = j)
+# 
+#     a <- summary(model)
+# 
+#     b <- tidy(a$coefficients)
+# 
+#     b <- b %>% mutate(ID = i)
+# 
+#     return(model)
+  #}
+  #l = l + 1
+  cutnewpar[[j]] <- gcm(data = data_shep_rbin[[6]], formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none",
+                 discount = j)
   }
-  l = l + 1
-}
 
+
+lapply(cutnewpar, function(x){x$fitobj$objval})
+data_shep_rbin[[2]]
 #Hat das cutting funktioniert?
 cutwork <- function(reps, cut){
   s<- gcm(data = tail(data_shep_rbin[[reps]], -cut), formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none")
