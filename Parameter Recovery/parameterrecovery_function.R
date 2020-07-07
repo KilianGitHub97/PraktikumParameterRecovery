@@ -7,8 +7,8 @@ library(foreach)
 library(plotly)
 
 # Setup -------------------------------------------------------------------
-discounts <- 1:2 #0:8
-nblocks <- 2 #später 1:6
+discounts <- 0:2 #0:8
+nblocks <- 1:2 #später 1:6
 types <- 1 #1:6
 true_pars <- expand.grid(lambda = 1:2, 
                          size = c(0.2, 0.5, 0.8), 
@@ -17,8 +17,8 @@ true_pars <- expand.grid(lambda = 1:2,
                          q = 1, 
                          b0 = 0.5, 
                          tau = c(0.1, 1, 2)) #more sensitive
-true_pars <- true_pars[1,] #delete
-runs <- 1:5 #1:50
+true_pars <- true_pars[1:2,] #delete
+runs <- 1:3 #1:50
 #wie probab. die Handlung ungesetzt wird = tau
 
 
@@ -41,6 +41,13 @@ data_shep <- data_raw_shepard %>%
   mutate( size = recode(size, "small" = 0, "large" = 1),
           shape = recode(shape, "triangle" = 0, "square" = 1),
           color = recode(color, "black" = 0, "white" = 1))
+
+# data_shep1 <- data_raw_shepard[, c("size", "shape", "color") := sapply(size, function(x) {if(x=="small") 0 
+#                                                                                         else if (x=="large") 1}),
+#                                                                sapply(shape, function(y) {if(y=="triangle") 0
+#                                                                                          else if (y=="square") 1}),
+#                                                                sapply(color, function(z) {if(z == "black") 0
+#                                                                                          else if (z == "white") 1})]
 
 
 # Simulate ----------------------------------------------------------------
@@ -105,14 +112,102 @@ results <-
     }
   }
 
-# Convert the results to a data.table
 
-glimpse(results)
+# Calcultation of the means of the runs -----------------------------------
 
-class(results)
-# Plot the Results
-ggplot(data = results,
-       mapping = aes(x = true_par,
-                     y = par)) +
-  geom_point() +
-  facet_wrap(~names)
+#spread data.table by par and true_par
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+
+#calculate Means from the different runs
+results_mean <-
+foreach (discount_m = discounts, .combine = "rbind") %:%
+  foreach (nblock_m = nblocks, .combine = "rbind") %:%
+    foreach (type_m = types, .combine = "rbind") %:%
+      foreach (true_par_m = 1:nrow(true_pars), .combine = "rbind") %dopar%
+{
+  {
+    {
+      {
+        data.table(
+          discount = discount_m,
+          nblock = nblock_m,
+          type = type_m,
+          row = true_par_m,
+          
+          #filter all possible combinations of the parameters and calculate the mean
+          results_wide[discount == discount_m & 
+                       nblock == nblock_m & 
+                       type == type_m & 
+                       row == true_par_m, 
+                       list(Mean_b0 = mean(par_b0), 
+                            Mean_b1 = mean(par_b1),
+                            Mean_color = mean(par_color),
+                            Mean_lambda = mean(par_lambda),
+                            Mean_q = mean(par_q),
+                            Mean_r = mean(par_r),
+                            Mean_shape = mean(par_shape),
+                            Mean_size = mean(par_size),
+                            Mean_tau = mean(par_tau),
+                            true_b0 = true_par_b0,
+                            true_b1 = true_par_b1,
+                            true_color = true_par_color,
+                            true_lambda = true_par_lambda,
+                            true_q = true_par_q,
+                            true_r = true_par_r,
+                            true_shape = true_par_shape,
+                            true_size = true_par_size,
+                            true_tau = true_par_tau
+                       )]
+        )
+      }
+    }
+  }
+}        
+
+#gather the mean results back to its original form
+results_mean_long <- 
+  unique(
+    melt(results_mean, id.vars = c("discount", 
+                                   "nblock", 
+                                   "type", 
+                                   "row"),
+         measure.vars = list( c("Mean_b0", 
+                                "Mean_b1", 
+                                "Mean_color", 
+                                "Mean_lambda", 
+                                "Mean_q", 
+                                "Mean_r", 
+                                "Mean_shape", 
+                                "Mean_size", 
+                                "Mean_tau"),
+                              c("true_b0", 
+                                "true_b1", 
+                                "true_color", 
+                                "true_lambda", 
+                                "true_q", 
+                                "true_r", 
+                                "true_shape", 
+                                "true_size", 
+                                "true_tau")),
+         variable.name = "names",
+         value.name = c( "par", 
+                         "true_par")
+         )
+  )
+
+#recoding the names column
+results_mean_long[, "names" := sapply(names, function(x) {if(x==1) "b0" 
+                                                          else if (x==2) "b1" 
+                                                          else if (x==3) "color"
+                                                          else if (x==4) "lambda"
+                                                          else if (x==5) "q"
+                                                          else if (x==6) "r"
+                                                          else if (x==7) "shape"
+                                                          else if (x==8) "size"
+                                                          else if (x==9) "tau"
+                                                          })]
+
+# Violin Plots ------------------------------------------------------------
+
+ggplot()
+
