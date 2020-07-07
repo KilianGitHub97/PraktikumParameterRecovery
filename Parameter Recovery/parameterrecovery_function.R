@@ -5,10 +5,11 @@ library(cognitivemodels)
 library(doParallel)
 library(foreach)
 library(plotly)
-
+library(jtools)
+install.packages("jtools")
 # Setup -------------------------------------------------------------------
 discounts <- 0:2 #0:8
-nblocks <- 1:2 #später 1:6
+nblocks <- 1:2 #sp?ter 1:6
 types <- 1 #1:6
 true_pars <- expand.grid(lambda = 1:2, 
                          size = c(0.2, 0.5, 0.8), 
@@ -50,9 +51,9 @@ data_shep <- data_raw_shepard %>%
 #                                                                                          else if (z == "white") 1})]
 
 
-# Simulate ----------------------------------------------------------------
 registerDoParallel(4)
 
+# Parameter recovery simulation -------------------------------------------
 
 # Parameter Recovery
 results <- 
@@ -209,5 +210,55 @@ results_mean_long[, "names" := sapply(names, function(x) {if(x==1) "b0"
 
 # Violin Plots ------------------------------------------------------------
 
-ggplot()
 
+ggplot(data = results_mean_long,
+       mapping = aes(x = true_par,
+                     y = par)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_line(aes(y = true_par), color = "red")+
+  facet_wrap(~names)+
+  xlim(0,3)+
+  ylim(0,3)+
+  theme_minimal()
+
+ggplot(data = results_mean_long[],
+       mapping = aes(x = true_par,
+                     y = par)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_line(aes(y = true_par), color = "red")+
+  facet_wrap(~names)+
+  xlim(0,3)+
+  ylim(0,3)+
+  theme_minimal()
+
+# Goodness of parameter recovery ------------------------------------------
+
+ggplot(data = results_mean) +
+  geom_violin(aes(x = as.factor(true_lambda), y = Mean_tau, width = 0.4))+
+  geom_boxplot(aes(x = as.factor(true_lambda), y = Mean_tau), width = 0.03)+
+ # geom_point(aes(x = as.factor(true_lambda), y = Mean_tau))+
+  geom_line(aes(x = true_lambda, y = true_tau), color = "red")+
+  facet_wrap(~true_tau)+
+  ylim(0,1)+
+  ylab("Estimated Tau")+
+  xlab("True Lambda")+
+  theme_apa()
+
+
+
+# Impact of omitting the first Parameters ---------------------------------
+
+#  Lambda ~ discount
+ggplot(data = results_mean,
+       mapping = aes(x = as.factor(discount),
+                     y = Mean_lambda)) +
+  geom_violin(width = 0.6)+
+  geom_boxplot(width = 0.1)+
+  geom_line(aes(x = discount + 1, y = true_lambda), color = "red", size = 1)+
+  facet_wrap(~true_lambda)+
+  ylim(0,10)+
+  xlab("Discount")+
+  ylab("Lambda")+
+  theme_apa()
