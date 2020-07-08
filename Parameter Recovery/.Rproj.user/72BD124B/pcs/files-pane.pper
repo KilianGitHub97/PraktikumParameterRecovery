@@ -2,8 +2,8 @@
     "path": "~/R/PraktikumParameterRecovery/Parameter Recovery",
     "sortOrder": [
         {
-            "ascending": true,
-            "columnIndex": 2
+            "columnIndex": 2,
+            "ascending": true
         }
     ]
 }

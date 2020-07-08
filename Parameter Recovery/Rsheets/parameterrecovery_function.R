@@ -3,23 +3,20 @@ library(data.table)
 library(tidyverse)
 library(cognitivemodels)
 library(doParallel)
-library(foreach)
 library(plotly)
 library(jtools)
-install.packages("jtools")
 # Setup -------------------------------------------------------------------
-discounts <- 0:2 #0:8
-nblocks <- 1:2 #sp?ter 1:6
-types <- 1 #1:6
-true_pars <- expand.grid(lambda = 1:2, 
-                         size = c(0.2, 0.5, 0.8), 
-                         shape = c(0.2, 0.5, 0.8), 
+discounts <- 8
+nblocks <- 6
+types <- 1:6
+true_pars <- expand.grid(lambda = 1, 
+                         size = 0.333, 
+                         shape = 0.333, 
                          r = 1, 
                          q = 1, 
                          b0 = 0.5, 
-                         tau = c(0.1, 1, 2)) #more sensitive
-true_pars <- true_pars[1:2,] #delete
-runs <- 1:3 #1:50
+                         tau = c(0.1, 0.3, 0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 2))
+runs <- 1:50 
 #wie probab. die Handlung ungesetzt wird = tau
 
 
@@ -51,15 +48,18 @@ data_shep <- data_raw_shepard %>%
 #                                                                                          else if (z == "white") 1})]
 
 
-registerDoParallel(4)
+# Parallel Setup ----------------------------------------------------------
+cluster <- makeCluster(8)
+registerDoParallel(cluster)
+foreach::getDoParWorkers()
 
 # Parameter recovery simulation -------------------------------------------
 
 # Parameter Recovery
 results <- 
   foreach(discount = discounts, .combine = "rbind", .packages = c("cognitivemodels", "data.table")) %:% 
-    foreach (nblock = nblocks, .combine = "rbind") %:% 
-      foreach (type = types, .combine = "rbind") %:% 
+    foreach (nblock = nblocks, .combine = "rbind"  ) %:% 
+      foreach (type = types, .combine = "rbind"  ) %:% 
         foreach (row = 1:nrow(true_pars), .combine = "rbind") %:%
           foreach(run = runs, .combine = "rbind") %dopar% 
   {
@@ -113,15 +113,28 @@ results <-
     }
   }
 
+write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv", row.names = FALSE)
 
-# Calcultation of the means of the runs -----------------------------------
+
+# reading in parts of the data --------------------------------------------
+
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+
+# deleting the convergence (if necessary)
+results <- results[convergence != 1]
+
+
+# Calcultation of the means and medians of the runs -----------------------
 
 #spread data.table by par and true_par
 results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
 
 #calculate Means from the different runs
 results_mean <-
-foreach (discount_m = discounts, .combine = "rbind") %:%
+foreach (discount_m = discounts, .combine = "rbind", .packages = "data.table") %:%
   foreach (nblock_m = nblocks, .combine = "rbind") %:%
     foreach (type_m = types, .combine = "rbind") %:%
       foreach (true_par_m = 1:nrow(true_pars), .combine = "rbind") %dopar%
@@ -135,7 +148,7 @@ foreach (discount_m = discounts, .combine = "rbind") %:%
           type = type_m,
           row = true_par_m,
           
-          #filter all possible combinations of the parameters and calculate the mean
+          #filter all possible combinations of the parameters and calculate the mean & median
           results_wide[discount == discount_m & 
                        nblock == nblock_m & 
                        type == type_m & 
@@ -149,6 +162,15 @@ foreach (discount_m = discounts, .combine = "rbind") %:%
                             Mean_shape = mean(par_shape),
                             Mean_size = mean(par_size),
                             Mean_tau = mean(par_tau),
+                            Median_b0 = median(par_b0), 
+                            Median_b1 = median(par_b1),
+                            Median_color = median(par_color),
+                            Median_lambda = median(par_lambda),
+                            Median_q = median(par_q),
+                            Median_r = median(par_r),
+                            Median_shape = median(par_shape),
+                            Median_size = median(par_size),
+                            Median_tau = median(par_tau),
                             true_b0 = true_par_b0,
                             true_b1 = true_par_b1,
                             true_color = true_par_color,
@@ -157,15 +179,14 @@ foreach (discount_m = discounts, .combine = "rbind") %:%
                             true_r = true_par_r,
                             true_shape = true_par_shape,
                             true_size = true_par_size,
-                            true_tau = true_par_tau
-                       )]
+                            true_tau = true_par_tau)]
         )
       }
     }
   }
 }        
 
-#gather the mean results back to its original form
+#gather the mean & median results back to its original form
 results_mean_long <- 
   unique(
     melt(results_mean, id.vars = c("discount", 
@@ -181,6 +202,15 @@ results_mean_long <-
                                 "Mean_shape", 
                                 "Mean_size", 
                                 "Mean_tau"),
+                              c("Median_b0", 
+                                "Median_b1", 
+                                "Median_color", 
+                                "Median_lambda", 
+                                "Median_q", 
+                                "Median_r", 
+                                "Median_shape", 
+                                "Median_size", 
+                                "Median_tau"),
                               c("true_b0", 
                                 "true_b1", 
                                 "true_color", 
@@ -191,7 +221,8 @@ results_mean_long <-
                                 "true_size", 
                                 "true_tau")),
          variable.name = "names",
-         value.name = c( "par", 
+         value.name = c( "Mean_par",
+                         "Median_par",
                          "true_par")
          )
   )
@@ -208,57 +239,90 @@ results_mean_long[, "names" := sapply(names, function(x) {if(x==1) "b0"
                                                           else if (x==9) "tau"
                                                           })]
 
-# Violin Plots ------------------------------------------------------------
 
+# Impact of omitting the first 0-8 rows on recovering tau -----------------
 
-ggplot(data = results_mean_long,
-       mapping = aes(x = true_par,
-                     y = par)) +
-  geom_point() +
-  geom_smooth(method = lm) +
-  geom_line(aes(y = true_par), color = "red")+
-  facet_wrap(~names)+
-  xlim(0,3)+
-  ylim(0,3)+
-  theme_minimal()
-
-ggplot(data = results_mean_long[],
-       mapping = aes(x = true_par,
-                     y = par)) +
-  geom_point() +
-  geom_smooth(method = lm) +
-  geom_line(aes(y = true_par), color = "red")+
-  facet_wrap(~names)+
-  xlim(0,3)+
-  ylim(0,3)+
-  theme_minimal()
-
-# Goodness of parameter recovery ------------------------------------------
-
-ggplot(data = results_mean) +
-  geom_violin(aes(x = as.factor(true_lambda), y = Mean_tau, width = 0.4))+
-  geom_boxplot(aes(x = as.factor(true_lambda), y = Mean_tau), width = 0.03)+
- # geom_point(aes(x = as.factor(true_lambda), y = Mean_tau))+
-  geom_line(aes(x = true_lambda, y = true_tau), color = "red")+
-  facet_wrap(~true_tau)+
-  ylim(0,1)+
-  ylab("Estimated Tau")+
-  xlab("True Lambda")+
-  theme_apa()
-
-
-
-# Impact of omitting the first Parameters ---------------------------------
-
-#  Lambda ~ discount
+# true_tau ~ estimated tau (dependent on discounts)
 ggplot(data = results_mean,
-       mapping = aes(x = as.factor(discount),
-                     y = Mean_lambda)) +
-  geom_violin(width = 0.6)+
-  geom_boxplot(width = 0.1)+
-  geom_line(aes(x = discount + 1, y = true_lambda), color = "red", size = 1)+
-  facet_wrap(~true_lambda)+
-  ylim(0,10)+
-  xlab("Discount")+
-  ylab("Lambda")+
+       mapping = aes(x = true_tau,
+                     y = Median_tau)) +
+  geom_point() +
+  geom_smooth(color = "black")  +
+  geom_line( aes(x = true_tau, y = true_tau), color = "red") +
+  facet_wrap(~discount) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
   theme_apa()
+
+# estimated tau ~ discount
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(discount),
+                     y = par_tau)) +
+  geom_violin(width = 0.7)+
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = discount + 1, y = true_par_tau), color = "red", size = 0.5)+
+  facet_wrap(~true_par_tau, nrow = 2)+
+  ylim(0, 3)+
+  xlab("Discount")+
+  ylab("Tau")+
+  theme_apa()
+
+
+# Impact of learning with more Blocks on recovery of tau ------------------
+
+# estimated tau ~ nblock
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(nblock),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = nblock, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Number of repetitive Blocks seen during learning phase") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+
+# true_tau ~ estimated tau (depending on nblocks)
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~nblock) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_apa()
+
+
+# ability of the GCM to grasp the difficulty of the categories on the tau parameter ------------
+
+# When classifications of these six types are encountered for the first time, they consistently differ in difficulty according to the
+# ranking I < II < ( I I I , IV, V) < VI (with I I I , IV, and V about equal in difficulty) . The same ranking is found for
+# learning and memory tasks, inspection time and error scores, and a variety of different kinds of stimuli. (From Shepard)
+
+# estimated tau ~ category
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(type),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = type, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Category") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+  
+# true_tau ~ estimated tau (depending on nblocks)
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~type) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_apa()  
+

@@ -1,0 +1,181 @@
+---
+title: "Parameter Recovery GCM"
+author: "Jana Jarecki & Kilian Sennrich"
+date: "8 7 2020"
+output: html_document
+---
+
+# Parameter Recovery GCM
+## Impact of omitting the first 0-8 rows on recovering tau
+### Category 1
+```{r, echo=FALSE, results="hide", message=FALSE}
+# Libraries
+library(data.table)
+library(tidyverse)
+
+#Read in
+resultsCat1 <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+results_wideCat1 <- dcast(resultsCat1, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wideCat1,
+       mapping = aes(x = as.factor(discount),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = discount + 1, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("Discount") +
+  ylab("Tau") +
+  theme_minimal()
+```
+
+
+**The generalized context model recovered the tau parameter well, when tau was close to 0.
+Omitting the first 0-8 rows has no systematic impact on the recovery of tau.**
+The results only represent the recovery for Shepards first category. This category is considered to be the easiest to learn. 
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. Trainingblocks = 6
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+
+The recovery was examined with 50 runs.
+
+```{r, echo=TRUE}
+ggplot(data = results_wideCat1,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~discount)+
+  ylim(0,10)+
+  xlab("True tau")+
+  ylab("Median of estimated tau")+
+  theme_minimal()
+```
+
+Recovery of tau for category 1. The red line represents the true Parameter, the points represent the median of all recovered tau parameters. Tau is recovered well, when it is close to 0. The labels above the graphs index the rows omitted. Again, no impact on the recovery can be found.
+
+### Category 6
+```{r, echo=FALSE, results="hide", message=FALSE}
+resultsCat6 <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
+results_wideCat6 <- dcast(resultsCat6, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wideCat6,
+       mapping = aes(x = as.factor(discount),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = discount + 1, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("Discount") +
+  ylab("Tau") +
+  theme_minimal()
+```
+
+Equivalent to category 1, category 6 recovers tau well, when tau is close to 0. Omitting the first 8 values has no impact on the recovery of tau
+The results only represent the recovery for Shepards 6. category. This category is considered to be the hardest to learn. 
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. Trainingblocks = 6
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+
+The recovery was examined with 50 runs.
+
+```{r, echo = TRUE}
+ggplot(data = results_wideCat6,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~discount)+
+  ylim(0,10)+
+  xlab("True tau")+
+  ylab("Median of estimated tau")+
+  theme_minimal()
+```
+
+Recovery of tau for category 6. The red line represents the true Parameter, the points represent the median of all recovered tau parameters.
+Tau is recovered well, when it is close to 0. The labels above the graphs index the rows omitted. Again, no impact on the recovery can be found.
+
+** Summary: Parameter Tau in the GCM Model is recovered rather well, when its close to 0. Discounting values does not seem to have an influence on the goodness of the recovery. The Shepard category does not seem to have an influence on tau either.**
+
+##Impact of training with multiple blocks on recovery of tau
+
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(nblock),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = nblock, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Number of repetitive Blocks seen during learning phase") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+```
+
+As the graph shows, the amount of blocks seen during learning phase does  have a slight impact on the goodness of recovery of the tau parameter. Best tau estimates can often be obtained on block 3, 4 or 5. 
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. discount = 8
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+10. cat = 1
+The recovery was examined with 50 runs.
+
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~nblock) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+As the graphs show, with increasing numbers of block repetitions seen during learning phase, the goodness of the recovery of tau increases.
