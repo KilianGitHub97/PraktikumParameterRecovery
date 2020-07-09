@@ -5,10 +5,12 @@ library(cognitivemodels)
 library(doParallel)
 library(plotly)
 library(jtools)
+library(pgirmess)
+
 # Setup -------------------------------------------------------------------
 discounts <- 8
 nblocks <- 6
-types <- 1:6
+types <- 1
 true_pars <- expand.grid(lambda = 1, 
                          size = 0.333, 
                          shape = 0.333, 
@@ -113,15 +115,16 @@ results <-
     }
   }
 
-write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv", row.names = FALSE)
+write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv", row.names = FALSE)
 
 
 # reading in parts of the data --------------------------------------------
 
-#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
-results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv")
 
 # deleting the convergence (if necessary)
 results <- results[convergence != 1]
@@ -240,15 +243,105 @@ results_mean_long[, "names" := sapply(names, function(x) {if(x==1) "b0"
                                                           })]
 
 
+# Calculation of the absolute values of estimation errors -----------------
+head(results_wide)
+
+# Add absolute values as new columns
+results_wide$abs_par_b0 <- abs(results_wide$par_b0 - results_wide$true_par_b0)
+results_wide$abs_par_b1 <- abs(results_wide$par_b1 - results_wide$true_par_b1)
+results_wide$abs_par_r <- abs(results_wide$par_r - results_wide$true_par_r)
+results_wide$abs_par_q <- abs(results_wide$par_q - results_wide$true_par_q)
+results_wide$abs_par_lambda <- abs(results_wide$par_lambda - results_wide$true_par_lambda)
+results_wide$abs_par_size <- abs(results_wide$par_size - results_wide$true_par_size)
+results_wide$abs_par_shape <- abs(results_wide$par_shape - results_wide$true_par_shape)
+results_wide$abs_par_color <- abs(results_wide$par_color - results_wide$true_par_color)
+results_wide$abs_par_tau <- abs(results_wide$par_tau - results_wide$true_par_tau)
+
+
+#graphically checking the distribution
+ggplot(data = results_wide,
+       mapping = aes(x = abs_par_tau )) +
+  geom_histogram() +
+  facet_wrap(~discount) +
+  theme_apa()
+
+# formally checking distribution
+shapiro.test(results_wide$abs_par_b0) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_b1) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_r) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_q) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_lambda) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_size) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_color) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_shape) #significant: no normal distibution can be assumed
+shapiro.test(results_wide$abs_par_tau) #significant: no normal distibution can be assumed
+
+#H1: There is a significant difference between the different discounts, when tau is kept constant
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.1,]) #H1 is rejected: p: 0.5147
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.1,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.3,]) #H1 is rejected: 0.9944
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.3,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.5,]) #H1 is rejected: p: 0.9437
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.5,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.7,]) #H1 is rejected: p: 0.3213
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.7,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.9,]) #H1 is rejected: p: 0.6356
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.9,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.1,]) #H1 is rejected: p: 0.6804
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.1,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.3,]) #H1 is accepted: p: 0.04147 // handle with care, bc. the estimates got worse with increasing tau
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.3,]) #but all comparisons are negative though?
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.5,]) #H1 is rejected: p: 0.8126
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.5,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.7,]) #H1 is rejected: p: 0.3262
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.7,])
+
+kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 2.0,]) #H1 is rejected: p: 0.7071
+kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 2.0,])
+
+
+# H1: There is a significant difference between the absolute values of tau when the discounts are kept constant
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 1,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 1,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 2,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 2,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 3,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 3,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 4,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 4,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 5,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 5,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 6,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 6,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 7,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 7,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 8,]) #significant
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 8,] )
+
+
 # Impact of omitting the first 0-8 rows on recovering tau -----------------
 
 # true_tau ~ estimated tau (dependent on discounts)
-ggplot(data = results_mean,
-       mapping = aes(x = true_tau,
-                     y = Median_tau)) +
-  geom_point() +
-  geom_smooth(color = "black")  +
-  geom_line( aes(x = true_tau, y = true_tau), color = "red") +
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
   facet_wrap(~discount) +
   ylim(0,10) +
   xlab("True tau") +
@@ -325,4 +418,115 @@ ggplot(data = results_wide,
   xlab("True tau") +
   ylab("Median of estimated tau") +
   theme_apa()  
+
+# Influence of Lambda on the recovery of Tau ------------------------------
+
+# estimated tau ~ lambda
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(true_par_lambda),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = true_par_lambda, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Lambda") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+
+# true_tau ~ estimated tau (depending on nblocks)
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~true_par_lambda) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_apa()  
+# Recovery of all the parameters other than tau. --------------------------
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
+results <- results[convergence != 1]
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+
+#recovery of b0, when b0 is 0.5
+ggplot(data = results_wide,
+       mapping = aes(y = par_b0)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b0), color = "red") +
+  geom_hline(aes(yintercept = median(par_b0)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of b1, , when b1 is 0.5
+ggplot(data = results_wide,
+       mapping = aes(y = par_b1)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b1), color = "red") +
+  geom_hline(aes(yintercept = median(par_b1)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of size, when size is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_size)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_size), color = "red") +
+  geom_hline(aes(yintercept = median(par_size)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of color, when color is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_color)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_color), color = "red") +
+  geom_hline(aes(yintercept = median(par_color)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of shape, when shape is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_shape)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_shape), color = "red") +
+  geom_hline(aes(yintercept = median(par_shape)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of r, when r is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_r)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_r), color = "red") +
+  geom_hline(aes(yintercept = median(par_r)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of q, when q is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_q)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_q), color = "red") +
+  geom_hline(aes(yintercept = median(par_q)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of lambda, when lambda is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_lambda)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_lambda), color = "red") +
+  geom_hline(aes(yintercept = median(par_lambda)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_apa()
+
+#recovery of tau when discount = 8
+ggplot(data = results_wide[discount == 8,],
+       mapping = aes(y = par_tau)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_tau), color = "red") +
+  geom_hline(aes(yintercept = median(par_tau)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_tau)+
+  theme_apa()
 

@@ -179,3 +179,89 @@ ggplot(data = results_wide,
 ```
 
 As the graphs show, with increasing numbers of block repetitions seen during learning phase, the goodness of the recovery of tau increases.
+
+## ability of the GCM to grasp the difficulty of the categories on the tau parameter
+
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(type),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = type, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Category") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+```
+
+The more difficult a category is, the less good should be its recovery. Shepard suggests the following order of difficulty: I < II < ( I I I , IV, V) < VI. Therefore, category 6 should show the worst recovery and category 1 should show the best recovery. Graphicly those difficulties could not be accuratly reproduced with the GCM Model.
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. discount = 8
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+10. Trainingblocks = 6
+
+The recovery was examined with 50 runs.
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~type) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+No visual differences could be seen between the categories
+
+## Influence of Lambda on the recovery of Tau
+
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(true_par_lambda),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = true_par_lambda, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Lambda") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+```
+
+Lambda, the speed of learning (sensitivity) is considered to habe a positive impact on the recovery of Tau. When a person learns quicker, the recovery of the prabability of implementing an action should be better especially with bigger Tau values. 
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~true_par_lambda) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()  
+```
