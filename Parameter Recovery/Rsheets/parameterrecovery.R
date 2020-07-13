@@ -1,4 +1,4 @@
-install.packages("doNWS")
+install.packages("")
 # Libraries ---------------------------------------------------------------
 library(data.table)
 library(tidyverse)
@@ -9,22 +9,6 @@ library(doParallel)
 library(foreach)
 library(plotly)
 library(ggpubr)
-
-
-# Setup -------------------------------------------------------------------
-discounts <- 1:2#0:8
-nblocks <- 2 #später 1:6
-types <- 1#1:6
-true_pars <- expand.grid(lambda = 1:2, 
-                        size = c(0.2, 0.5, 0.8), 
-                        shape = c(0.2, 0.5, 0.8), 
-                        r = 1, 
-                        q = 1, 
-                        b0 = 0.5, 
-                        tau = c(0.1, 1, 2))
-true_pars <- true_pars[1,]
-runs <- 1:5
-#wie probab. die handlöung ungesetzt wird = tau
 
 # Datensatz ---------------------------------------------------------------
 
@@ -46,62 +30,6 @@ data_shep <- data_raw_shepard %>%
           color = recode(color, "black" = 0, "white" = 1))
 
 
-# Simulate ----------------------------------------------------------------
-# List with results
-results <- list()
-
-l = 1
-for (discount in discounts) {
-  for (nblock in nblocks) {
-    for (type in types) {
-      for (row in 1:nrow(true_pars)) {
-        true_par <- true_pars[row, ]
-        data <- data_shep[rep(1:nrow(data_shep), nblock),]
-        model <- gcm(data = data,
-                           formula = ~ size + shape + color, 
-                           class = paste("cat", type, sep = "_"), 
-                           choicerule = "softmax", 
-                           fix = true_par, 
-                           discount = 0)
-        predictions <- predict(model)
-        for (run in runs) {
-          data$simulations <- rbinom(length(predictions) , 1, predictions)
-          
-          fitted_model <- gcm(data = data,
-                              formula = simulations ~ size + shape + color, 
-                              class = paste("cat", type, sep = "_"), 
-                              choicerule = "softmax", 
-                              discount = discount)
-          results[[l]] <- data.table(
-            run = run,
-            discount = discount,
-            nblock = nblock,
-            type = type,
-            row = row,
-            names = names(coef(fitted_model)),
-            par = coef(fitted_model),
-            true_par = model$get_par("all"),
-            convergence = fitted_model$fitobj$convergence
-          )
-          l = l + 1
-        }
-        
-      }
-      
-    }
-    
-  }
-  
-}
-results <- rbindlist(results, id = "id")
-results
-ggplot(data = results,
-       mapping = aes(x = true_par,
-                     y = par)) +
-  geom_point() +
-  facet_wrap(~names)
-#
-# rbinom(): n = number of observations // size = max possible value // prob = Probability of either 1 or 2
 
 # Calculating binominal coefficients and adding them to the shepar --------
 
@@ -154,11 +82,6 @@ printdet <- function(Block) {
   print(data_shep_rbin[Block]);
   print(kldiv[Block])
 }
-#models1 <- gcm(data = allFrames[[i]], formula = ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
-                   fix = fixpar, discount = 8) 
-
-#models2 <- gcm(data = allFrames[[i]], formula = ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
-               fix = fixpar, discount = 1)
 
 models[[1]]$discount
 #alle wichtigen Daten zu Block 4 ausgeben:
@@ -211,27 +134,23 @@ cutnewpar <- list()
 
 l = 1
 
-#For-loop der bei jedem Datensatz jeweils die erste (bis siebte) Zeile löscht und die Parameter in der List cutnewpar speichert
+# For-loop der bei jedem Datensatz jeweils die erste (bis siebte) Zeile löscht und die Parameter in der List cutnewpar speichert
 for (j in 1:7) {
-  # cutnewpar[[j]] <- foreach(i = 6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
-  #   model <- gcm(data = data_shep_rbin[[i]], formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
-  #       discount = j)
-# 
-#     a <- summary(model)
-# 
-#     b <- tidy(a$coefficients)
-# 
-#     b <- b %>% mutate(ID = i)
-# 
-#     return(model)
-  #}
-  #l = l + 1
-  cutnewpar[[j]] <- gcm(data = data_shep_rbin[[6]], formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none",
-                 discount = j)
+  cutnewpar[[l]] <- foreach(i = 6, .combine = "rbind", .packages = c("cognitivemodels", "broom", "dplyr")) %dopar% {
+  model <- gcm(data = data_shep_rbin[[i]], formula = binval ~ size + shape + color, class = ~ Kategorie_1, choicerule = "none", 
+         discount = j)
+  
+  a <- summary(model)
+
+  b <- tidy(a$coefficients)
+ 
+  b <- b %>% mutate(ID = i)
+ 
+  }
+  l = l + 1
   }
 
 
-lapply(cutnewpar, function(x){x$fitobj$objval})
 data_shep_rbin[[2]]
 #Hat das cutting funktioniert?
 cutwork <- function(reps, cut){
