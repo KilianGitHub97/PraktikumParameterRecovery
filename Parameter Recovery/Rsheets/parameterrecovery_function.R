@@ -115,12 +115,12 @@ results <-
     }
   }
 
-write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv", row.names = FALSE)
+#write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv", row.names = FALSE)
 
 
 # reading in parts of the data --------------------------------------------
 
-results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
@@ -243,8 +243,8 @@ results_mean_long[, "names" := sapply(names, function(x) {if(x==1) "b0"
                                                           })]
 
 
-# Calculation of the absolute values of estimation errors -----------------
-head(results_wide)
+
+# Testing for significant differences -------------------------------------
 
 # Add absolute values as new columns
 results_wide$abs_par_b0 <- abs(results_wide$par_b0 - results_wide$true_par_b0)
@@ -336,6 +336,9 @@ kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 8,] )
 
 # Impact of omitting the first 0-8 rows on recovering tau -----------------
 
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
+
 # true_tau ~ estimated tau (dependent on discounts)
 ggplot(data = results_wide,
        mapping = aes(x = true_par_tau,
@@ -363,6 +366,8 @@ ggplot(data = results_wide,
 
 
 # Impact of learning with more Blocks on recovery of tau ------------------
+
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
 
 # estimated tau ~ nblock
 ggplot(data = results_wide,
@@ -395,6 +400,8 @@ ggplot(data = results_wide,
 # ranking I < II < ( I I I , IV, V) < VI (with I I I , IV, and V about equal in difficulty) . The same ranking is found for
 # learning and memory tasks, inspection time and error scores, and a variety of different kinds of stimuli. (From Shepard)
 
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+
 # estimated tau ~ category
 ggplot(data = results_wide,
        mapping = aes(x = as.factor(type),
@@ -421,6 +428,8 @@ ggplot(data = results_wide,
 
 # Influence of Lambda on the recovery of Tau ------------------------------
 
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv")
+
 # estimated tau ~ lambda
 ggplot(data = results_wide,
        mapping = aes(x = as.factor(true_par_lambda),
@@ -444,10 +453,13 @@ ggplot(data = results_wide,
   xlab("True tau") +
   ylab("Median of estimated tau") +
   theme_apa()  
-# Recovery of all the parameters other than tau. --------------------------
-results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
-results <- results[convergence != 1]
-results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+
+
+# Recovery of all the parameters ------------------------------------------
+
+#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
+#results <- results[convergence != 1]
+#results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
 
 #recovery of b0, when b0 is 0.5
 ggplot(data = results_wide,
