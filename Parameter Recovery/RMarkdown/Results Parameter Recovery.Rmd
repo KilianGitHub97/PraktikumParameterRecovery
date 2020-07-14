@@ -1,0 +1,677 @@
+---
+title: "Parameter Recovery GCM"
+author: "Jana Jarecki & Kilian Sennrich"
+date: "8 7 2020"
+output:
+  html_document:
+    theme: united
+    toc: yes
+---
+
+# Parameter Recovery GCM
+## Impact of omitting the first 0-8 rows on recovering tau
+### Category 1
+```{r, echo=FALSE, results="hide", message=FALSE}
+# Libraries
+library(data.table)
+library(tidyverse)
+library(pgirmess)
+
+#Read in
+resultsCat1 <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+results_wideCat1 <- dcast(resultsCat1, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wideCat1,
+       mapping = aes(x = as.factor(discount),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = discount + 1, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("Discount") +
+  ylab("Tau") +
+  theme_minimal()
+```
+
+
+**The generalized context model recovered the tau parameter well, when tau was close to 0.
+Omitting the first 0-8 rows has no systematic impact on the recovery of tau.**
+The results only represent the recovery for Shepards first category. This category is considered to be the easiest to learn. 
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. Trainingblocks = 6
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+
+The recovery was examined with 50 runs.
+
+```{r, echo=TRUE}
+ggplot(data = results_wideCat1,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~discount)+
+  ylim(0,10)+
+  xlab("True tau")+
+  ylab("Median of estimated tau")+
+  theme_minimal()
+```
+
+Recovery of tau for category 1. The red line represents the true Parameter, the points represent the median of all recovered tau parameters. Tau is recovered well, when it is close to 0. The labels above the graphs index the rows omitted. Again, no impact on the recovery can be found.
+
+#### Testing the visual results
+```{r, echo=FALSE}
+results_wideCat1$abs_par_tau <- abs(results_wideCat1$par_tau - results_wideCat1$true_par_tau)
+
+shapiro.test(results_wideCat1$abs_par_tau) #significant: no normal distibution can be assumed
+```
+
+The absolute values of the recovery errors are tested for normal distribution. The test got significant, indicating that no normal distribution can be assumed. Since we have independent samples and at least ordinal scaled variables, the kruskal wallis H test seems appropriate here.
+
+##### H1: There is a significant difference between the different discounts, when tau is kept constant
+
+```{r, echo=TRUE}
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 0.1,])
+kruskalmc(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 0.1,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 0.3,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 0.5,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 0.7,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 0.9,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 1.1,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 1.3,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 1.5,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 1.7,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat1[true_par_tau == 2.0,])
+```
+
+Every test seems to be insignificant, suggesting that different discounts do not influence the goodness of recovery of tau.
+
+##### H1: There is a significant difference between the absolute values of tau when the discounts are kept constant
+
+```{r, echo=TRUE}
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 1,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 1,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 2,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 2,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 3,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 3,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 4,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 4,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 5,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 5,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 6,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 6,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 7,])
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 7,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 8,])
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat1[discount == 8,] )
+```
+
+All tests were significant, indicating that the recovery of tau depends on the actual value of tau
+
+### Category 6
+```{r, echo=FALSE, results="hide", message=FALSE}
+resultsCat6 <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
+results_wideCat6 <- dcast(resultsCat6, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wideCat6,
+       mapping = aes(x = as.factor(discount),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = discount + 1, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("Discount") +
+  ylab("Tau") +
+  theme_minimal()
+```
+
+Equivalent to category 1, category 6 recovers tau well, when tau is close to 0. Omitting the first 8 values has no impact on the recovery of tau
+The results only represent the recovery for Shepards 6. category. This category is considered to be the hardest to learn. 
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. Trainingblocks = 6
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+
+The recovery was examined with 50 runs.
+
+```{r, echo = TRUE}
+ggplot(data = results_wideCat6,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~discount)+
+  ylim(0,10)+
+  xlab("True tau")+
+  ylab("Median of estimated tau")+
+  theme_minimal()
+```
+
+Recovery of tau for category 6. The red line represents the true Parameter, the points represent the median of all recovered tau parameters.
+Tau is recovered well, when it is close to 0. The labels above the graphs index the rows omitted. Again, no impact on the recovery can be found.
+
+** Summary: Parameter Tau in the GCM Model is recovered rather well, when its close to 0. Discounting values does not seem to have an influence on the goodness of the recovery. The Shepard category does not seem to have an influence on tau either.**
+
+#### Testing the visual results
+```{r, echo=FALSE}
+results_wideCat6$abs_par_tau <- abs(results_wideCat6$par_tau - results_wideCat6$true_par_tau)
+
+shapiro.test(results_wideCat6$abs_par_tau) #significant: no normal distibution can be assumed
+```
+
+The absolute values of the recovery errors are tested for normal distribution. The test got significant, indicating that no normal distribution can be assumed. Since we have independent samples and at least ordinal scaled variables, the kruskal wallis H test seems appropriate here.
+
+##### H1: There is a significant difference between the different discounts, when tau is kept constant
+
+```{r, echo=TRUE}
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 0.1,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 0.3,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 0.5,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 0.7,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 0.9,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 1.1,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 1.3,])
+kruskalmc(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 1.3,])
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 1.5,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 1.7,]) 
+kruskal.test(abs_par_tau ~ discount, results_wideCat6[true_par_tau == 2.0,])
+```
+
+Every test seems to be insignificant, suggesting that different discounts do not influence the goodness of recovery of tau. Since Category has no actual impact on the recovery of tau, we know, that the significant results are due to randomness and noise. Conclusion therefore is, that different discounts have no influence on the recovery of tau.
+
+##### H1: There is a significant difference between the absolute values of tau when the discounts are kept constant
+
+```{r, echo=TRUE}
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 1,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 1,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 2,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 2,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 3,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 3,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 4,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 4,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 5,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 5,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 6,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 6,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 7,])
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 7,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 8,])
+kruskalmc(abs_par_tau ~ true_par_tau, results_wideCat6[discount == 8,] )
+```
+
+All tests were significant, indicating that the recovery of tau depends on the actual value of tau.
+
+
+## Impact of training with multiple blocks on recovery of tau
+
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(nblock),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = nblock, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Number of repetitive Blocks seen during learning phase") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+```
+
+As the graph shows, the amount of blocks seen during learning phase does  have a slight impact on the goodness of recovery of the tau parameter. Best tau estimates can often be obtained on block 3, 4 or 5. 
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. discount = 8
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+10. cat = 1
+The recovery was examined with 50 runs.
+
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~nblock) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+As the graphs show, with increasing numbers of block repetitions seen during learning phase, the goodness of the recovery of tau increases.
+
+#### Testing the visual results
+```{r, echo=FALSE}
+results_wide$abs_par_tau <- abs(results_wide$par_tau - results_wide$true_par_tau)
+
+shapiro.test(results_wide$abs_par_tau) #significant: no normal distibution can be assumed
+```
+
+The absolute values of the recovery errors are tested for normal distribution. The test got significant, indicating that no normal distribution can be assumed. Since we have independent samples and at least ordinal scaled variables, the kruskal wallis H test seems appropriate here.
+
+##### H1: There is a significant difference between the different blocks, when tau is kept constant
+
+```{r, echo=TRUE}
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.1,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.1,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.3,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.3,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.5,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.5,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.7,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.7,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.9,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 0.9,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.1,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.1,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.3,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.3,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.5,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.5,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.7,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 1.7,])
+
+kruskal.test(abs_par_tau ~ nblock, results_wide[true_par_tau == 2.0,])
+kruskalmc(abs_par_tau ~ nblock, results_wide[true_par_tau == 2.0,])
+```
+
+Every test seems to be insignificant, suggesting that different discounts do not influence the goodness of recovery of tau. Since Category has no actual impact on the recovery of tau, we know, that the significant results are due to randomness and noise. Conclusion therefore is, that different discounts have no influence on the recovery of tau.
+
+##### H1: There is a significant difference between the absolute values of tau when the Blocks are kept constant
+
+```{r, echo=TRUE}
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[nblock == 1,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[nblock == 1,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[nblock == 2,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[nblock == 2,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[nblock == 3,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[nblock == 3,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[nblock == 4,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[nblock == 4,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[nblock == 5,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[nblock == 5,] )
+
+kruskal.test(abs_par_tau ~ true_par_tau, results_wide[nblock == 6,]) 
+kruskalmc(abs_par_tau ~ true_par_tau, results_wide[nblock == 6,] )
+```
+
+All tests were significant, indicating that the recovery of tau depends on the actual value of tau.
+
+## ability of the GCM to grasp the difficulty of the categories on the tau parameter
+
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(type),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = type, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Category") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+```
+
+The more difficult a category is, the less good should be its recovery. Shepard suggests the following order of difficulty: I < II < ( I I I , IV, V) < VI. Therefore, category 6 should show the worst recovery and category 1 should show the best recovery. Graphicly those difficulties could not be accuratly reproduced with the GCM Model.
+All free parameters that are not considered to have an impact here have been kept constant as follows:
+
+1. discount = 8
+2. Lambda = 1
+3. size = 0.333
+4. color = 0.333
+5. shape = 0.333
+6. r = 1
+7. q = 1
+8. b0 = 0.5
+9. b1 = 0.5
+10. Trainingblocks = 6
+
+The recovery was examined with 50 runs.
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~type) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+No visual differences could be seen between the categories
+
+#### Testing the visual results
+```{r, echo=FALSE}
+results_wide$abs_par_tau <- abs(results_wide$par_tau - results_wide$true_par_tau)
+
+shapiro.test(results_wide$abs_par_tau) #significant: no normal distibution can be assumed
+```
+
+The absolute values of the recovery errors are tested for normal distribution. The test got significant, indicating that no normal distribution can be assumed. Since we have independent samples and at least ordinal scaled variables, the kruskal wallis H test seems appropriate here.
+
+##### H1: There is a significant difference between the different categories, when tau is kept constant
+
+```{r, echo=TRUE}
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 0.1,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 0.3,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 0.5,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 0.7,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 0.9,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 1.1,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 1.3,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 1.5,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 1.7,])
+kruskalmc(abs_par_tau ~ type, results_wide[true_par_tau == 1.7,])
+
+kruskal.test(abs_par_tau ~ type, results_wide[true_par_tau == 2.0,])
+kruskalmc(abs_par_tau ~ type, results_wide[true_par_tau == 2.0,])
+```
+
+If the recovery would work properly, we would see significant differences between the categories and the categories 3, 4 and 5 would not show any differences. The results show, that most of the comparisons were not significant, suggesting, that the model cannot account for the difficulties of the different categories. When tau gets bigger, its recovery is less accurate, that means, that the possibility for significance increases without having any meaning. Therefore significant results for tau = 0.7 and tau = 2.0 are not of further interest. 
+
+
+## Influence of Lambda on the recovery of Tau
+
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = as.factor(true_par_lambda),
+                     y = par_tau)) +
+  geom_violin() +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line(aes(x = true_par_lambda, y = true_par_tau), color = "red")+
+  facet_wrap(~true_par_tau) + 
+  xlab("Lambda") +
+  ylab("Estimated Tau") +
+  theme_minimal()
+```
+
+Lambda, the speed of learning (sensitivity) is considered to habe a positive impact on the recovery of Tau. When a person learns quicker, the recovery of the prabability of implementing an action should be better especially with bigger Tau values. 
+
+```{r, echo=TRUE}
+ggplot(data = results_wide,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  stat_summary(fun = "median", geom = "point")+
+  geom_line( aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  facet_wrap(~true_par_lambda) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()  
+```
+
+## Recovery of the other parameters
+### Rendered with dataset CatTau
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+#recovery of b0, when b0 is 0.5
+ggplot(data = results_wide,
+       mapping = aes(y = par_b0)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b0), color = "red") +
+  geom_hline(aes(yintercept = median(par_b0)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of b1, , when b1 is 0.5
+ggplot(data = results_wide,
+       mapping = aes(y = par_b1)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b1), color = "red") +
+  geom_hline(aes(yintercept = median(par_b1)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of size, when size is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_size)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_size), color = "red") +
+  geom_hline(aes(yintercept = median(par_size)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of color, when color is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_color)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_color), color = "red") +
+  geom_hline(aes(yintercept = median(par_color)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of shape, when shape is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_shape)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_shape), color = "red") +
+  geom_hline(aes(yintercept = median(par_shape)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of r, when r is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_r)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_r), color = "red") +
+  geom_hline(aes(yintercept = median(par_r)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of q, when q is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_q)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_q), color = "red") +
+  geom_hline(aes(yintercept = median(par_q)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of lambda, when lambda is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_lambda)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_lambda), color = "red") +
+  geom_hline(aes(yintercept = median(par_lambda)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of tau when discount = 8
+ggplot(data = results_wide[discount == 8,],
+       mapping = aes(y = par_tau)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_tau), color = "red") +
+  geom_hline(aes(yintercept = median(par_tau)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_tau)+
+  theme_minimal()
+```
+
+Blue lines indicate median of all recovered parameters. Red lines indicate the original parameters. 
+
+### Rendered with dataset DiscountTauCat1
+
+```{r ,echo=FALSE, results="hide", message=FALSE}
+results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+```
+
+```{r, echo=TRUE}
+#recovery of b0, when b0 is 0.5
+ggplot(data = results_wide,
+       mapping = aes(y = par_b0)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b0), color = "red") +
+  geom_hline(aes(yintercept = median(par_b0)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of b1, , when b1 is 0.5
+ggplot(data = results_wide,
+       mapping = aes(y = par_b1)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b1), color = "red") +
+  geom_hline(aes(yintercept = median(par_b1)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of size, when size is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_size)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_size), color = "red") +
+  geom_hline(aes(yintercept = median(par_size)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of color, when color is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_color)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_color), color = "red") +
+  geom_hline(aes(yintercept = median(par_color)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of shape, when shape is ~0.33
+ggplot(data = results_wide,
+       mapping = aes(y = par_shape)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_shape), color = "red") +
+  geom_hline(aes(yintercept = median(par_shape)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of r, when r is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_r)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_r), color = "red") +
+  geom_hline(aes(yintercept = median(par_r)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of q, when q is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_q)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_q), color = "red") +
+  geom_hline(aes(yintercept = median(par_q)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of lambda, when lambda is 1
+ggplot(data = results_wide,
+       mapping = aes(y = par_lambda)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_lambda), color = "red") +
+  geom_hline(aes(yintercept = median(par_lambda)), color="blue", linetype="dashed")+
+  facet_wrap(~discount)+
+  theme_minimal()
+
+#recovery of tau when discount = 8
+ggplot(data = results_wide[discount == 8,],
+       mapping = aes(y = par_tau)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_tau), color = "red") +
+  geom_hline(aes(yintercept = median(par_tau)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_tau)+
+  theme_minimal()
+```
+
+Blue lines indicate median of all recovered parameters. Red lines indicate the original parameters. 
