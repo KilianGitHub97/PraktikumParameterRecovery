@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1594101895702.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1995476558",
+    "id" : "9BCE4E70",
+    "lastKnownWriteTime" : 1594100321,
+    "last_content_update" : 1594100321,
+    "path" : "~/GitHub/PraktikumParameterRecovery/Parameter Recovery/parameterrecovery_function.R",
+    "project_path" : "parameterrecovery_function.R",
+    "properties" : {
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
