@@ -6,29 +6,27 @@ library(doParallel)
 library(plotly)
 library(jtools)
 library(pgirmess)
-
+library(lsmeans)
 # Setup -------------------------------------------------------------------
-discounts <- 8
-nblocks <- 6
-types <- 1
-true_pars <- expand.grid(lambda = 1, 
+discounts <- 3#c(0,3,8)
+nblocks <- 100#c(30, 50, 100)
+types <- 1#1:6
+true_pars <- expand.grid(lambda = 1,#c(1,5),
                          size = 0.333, 
                          shape = 0.333, 
                          r = 1, 
                          q = 1, 
                          b0 = 0.5, 
-                         tau = c(0.1, 0.3, 0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 2))
+                         tau = c(0.1, 0.3, 0.5, 1, 1.5, 2))
 runs <- 1:50 
-#wie probab. die Handlung ungesetzt wird = tau
 
 
 # Shepard dataframe -------------------------------------------------------
 
-
 data_raw_shepard <- data.frame(
-  size = as.factor( c("small", "small", "small", "small", "large", "large", "large", "large" )), # c(small, large)
-  shape = as.factor( c("triangle", "triangle", "square", "square", "triangle", "triangle", "square", "square" )), # c(triangle, square)
-  color = as.factor( c("black", "white", "black", "white", "black", "white", "black", "white")), # c(black, white)
+  size = as.factor( c("small", "small", "small", "small", "large", "large", "large", "large" )), 
+  shape = as.factor( c("triangle", "triangle", "square", "square", "triangle", "triangle", "square", "square" )), 
+  color = as.factor( c("black", "white", "black", "white", "black", "white", "black", "white")), 
   cat_1 = c(0, 1, 0, 1, 0, 1, 0, 1), # c(0, 1)
   cat_2 = c(0, 1, 1, 0, 0, 1, 1, 0), # c(0, 1)
   cat_3 = c(0, 0, 1, 1, 0, 1, 0, 1), # c(0, 1)
@@ -51,7 +49,7 @@ data_shep <- data_raw_shepard %>%
 
 
 # Parallel Setup ----------------------------------------------------------
-cluster <- makeCluster(8)
+cluster <- makeCluster(6)
 registerDoParallel(cluster)
 foreach::getDoParWorkers()
 
@@ -79,7 +77,7 @@ results <-
                        formula = ~ size + shape + color, 
                        class = paste("cat", type, sep = "_"), 
                        choicerule = "softmax", 
-                       fix = true_par, 
+                       fix = true_par,
                        discount = 0)
           
           # Simulation of repeated measurements
@@ -95,7 +93,8 @@ results <-
                                 formula = simulations ~ size + shape + color, 
                                 class = paste("cat", type, sep = "_"), 
                                 choicerule = "softmax", 
-                                discount = discount)
+                                discount = discount
+                                )
             
             # Save the necessary components to the results
             data.table(
@@ -115,16 +114,18 @@ results <-
     }
   }
 
+head(results, 18)
+
 #write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv", row.names = FALSE)
 
 
 # reading in parts of the data --------------------------------------------
 
-#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
-#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
-#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
-#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
-#results <- fread("D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv")
+results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv")
 
 # deleting the convergence (if necessary)
 results <- results[convergence != 1]
@@ -134,6 +135,8 @@ results <- results[convergence != 1]
 
 #spread data.table by par and true_par
 results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
+
+
 
 #calculate Means from the different runs
 results_mean <-

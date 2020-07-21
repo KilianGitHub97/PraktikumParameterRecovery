@@ -1,0 +1,427 @@
+---
+title: "Parameter Recovery GCM"
+author: "Jana Jarecki & Kilian Sennrich"
+date: "22 7 2020"
+output: 
+  html_document:
+    theme: united
+    toc: yes
+---
+```{r, echo=TRUE, results="hide", message=FALSE}
+#Libraries
+library(data.table)
+library(tidyverse)
+library(lmmeans)
+```
+
+```{r, echo=TRUE, results="hide", message=FALSE}
+#Data // l = long; w = wide
+data.l <- fread("")
+data.l <- data.l[convergence != 1][, convergence := NULL]
+data.w <- dcast(data = data.l,
+                formula = run + discount + nblock + type + row ~ names,
+                value.var = c("par", "true_par"))
+```
+
+## 1. How does discounting, repetition, lambda and Shepards categories influence the recovery of tau?
+
+In the following, I apply multiple linear regression to see, whether discounting, repetition, lamda or Shepards categories have significant influence on the estimated tau. The basic idea is, that when any of these parameters had systematic influence on tau, they could explain a significant amount of variance of tau (beta-weights would be significant). Therefore, **discount + amount of blocks + Shepards categories + lambda + true tau** can predict **tau**. 
+
+**H1: Tau can be explained through a linear combination of discount, amount of blocks, shepards categories, lambda AND true tau. **
+
+```{r, echo=TRUE, results="hide", message=FALSE}
+data.w.mlr <- data.w
+# Z-transformation to be able to compare beta-weights
+data.w.mlr$Zdiscount <- scale(data.w.mlr$discount)
+data.w.mlr$Znblock <- scale(data.w.mlr$nblock)
+data.w.mlr$Ztype <- scale(data.w.mlr$type)
+data.w.mlr$Zlambda <- scale(data.w.mlr$par_lambda)
+data.w.mlr$Ztrue_tau <- scale(data.w.mlr$true_par_tau)
+data.w.mlr$Ztau <- scale(data.w.mlr$par_tau)
+```
+
+```{r, echo=TRUE}
+output.mlr <- lm(formula = Ztau ~ Ztrue_tau + Zlambda + Ztype + Znblock + Zdiscount,
+                 data = data.w.mlr)
+
+summary(output.mlr)
+```
+
+** Graphical analysis of the recovery of all parameters other than tau.**
+
+Depending on the outcome of the multiple linear regression, marginalized or conditionized testing is advised.
+Blue lines indicate median of all recovered parameters. Red lines indicate the original parameters. 
+
+```{r, echo=TRUE}
+#recovery of b0
+ggplot(data = results_wide,
+       mapping = aes(y = par_b0)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b0), color = "red") +
+  geom_hline(aes(yintercept = median(par_b0)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_b0)+
+  theme_minimal()
+
+
+#recovery of b1
+ggplot(data = results_wide,
+       mapping = aes(y = par_b1)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_b1), color = "red") +
+  geom_hline(aes(yintercept = median(par_b1)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_b1)+
+  theme_minimal()
+
+#recovery of size
+ggplot(data = results_wide,
+       mapping = aes(y = par_size)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_size), color = "red") +
+  geom_hline(aes(yintercept = median(par_size)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_size)+
+  theme_minimal()
+
+#recovery of color
+ggplot(data = results_wide,
+       mapping = aes(y = par_color)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_color), color = "red") +
+  geom_hline(aes(yintercept = median(par_color)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_color)+
+  theme_minimal()
+
+#recovery of shape
+ggplot(data = results_wide,
+       mapping = aes(y = par_shape)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_shape), color = "red") +
+  geom_hline(aes(yintercept = median(par_shape)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_shape)+
+  theme_minimal()
+
+#recovery of r
+ggplot(data = results_wide,
+       mapping = aes(y = par_r)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_r), color = "red") +
+  geom_hline(aes(yintercept = median(par_r)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_r)+
+  theme_minimal()
+
+#recovery of q
+ggplot(data = results_wide,
+       mapping = aes(y = par_q)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_q), color = "red") +
+  geom_hline(aes(yintercept = median(par_q)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_q)+
+  theme_minimal()
+
+#recovery of lambda
+ggplot(data = results_wide,
+       mapping = aes(y = par_lambda)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_lambda), color = "red") +
+  geom_hline(aes(yintercept = median(par_lambda)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_lambda)+
+  theme_minimal()
+
+#recovery of tau
+ggplot(data = results_wide,
+       mapping = aes(y = par_tau)) +
+  geom_histogram()+
+  geom_hline(aes(yintercept = true_par_tau), color = "red") +
+  geom_hline(aes(yintercept = median(par_tau)), color="blue", linetype="dashed")+
+  facet_wrap(~true_par_discount)+
+  theme_minimal()
+```
+
+## 2. Impact of omitting the first 3 and 8 rows on recovering tau
+
+According to the GCM, omitting the first 3 or 8 rows should lead to better recovery of the tau parameter. Reason being, that the machine learning algorithm does not make accurate decisions on early rows of training.  To further test the effect of omitting the aforementioned rows, i compare their beta-weights. The intercepts can be ignored, since z-transformed variables are being used. A total of 3 comparisons will be made: 0 vs 3, 0 vs 8, 3 vs 8. 
+
+**There is at least one significant variable that predicts Zdiscount**
+
+```{r, echo=TRUE}
+data.w.discount.mlr <- lm(formula = Zdiscount ~ Ztau + Ztrue_tau + Zlambda + Ztype + Znblock,
+                        data = data.w.mlr)
+
+summary(data.w.discount.mlr)
+```
+
+**H1: The regression-beta coefficient of a regressionmodel with 0, resp. 3 rows omitted, signifficantly differs from a regressionmodel with 3 resp. 8 rows removed.**
+
+```{r, echo=TRUE}
+#set up linear models
+data.w.discount.lm <- lm(Ztau ~ Ztrue_tau * Zdiscount,
+                        data = data.w.mlr)
+
+anova(data.w.discount.lm)
+
+#slope coefficients
+data.w.discount.coef <- lstrends(data.w.discount.lm,
+                                 "Zdiscount",
+                                 var = "Ztrue_tau")
+
+#compare slope coefficients
+pairs(data.w.discount.coef)
+```
+
+```{r, echo=TRUE}
+#violin plots for discount per par_tau (Ev müssen wir noch konditionieren)
+ggplot(data = data.w,
+       mapping = aes(x = as.factor(true_par_discount),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = true_par_discount + 1, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("Discount") +
+  ylab("Tau") +
+  theme_minimal()
+
+# linear regression
+ggplot(data = results.w,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  geom_point(aes(x = true_par_tau,
+                 y = par_tau),
+             alpha = 1 / 5) +
+  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  geom_line(data = results.w[true_par_discount == 0],
+            aes(x = true_par_tau,
+                y = par_tau),
+            color = "green") +
+  geom_line(data = results.w[true_par_discount == 3],
+            aes(x = true_par_tau,
+                y = par_tau),
+            color = "blue") +
+  geom_line(data = results.w[true_par_discount == 8],
+            aes(x = true_par_tau,
+                y = par_tau),
+            color = "yellow") +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+
+## 3. Impact of training with multiple blocks on recovery of tau
+
+According to the GCM, the more repetitive blocks a subject will be able to learn with, the better should the categorization accuracy get during. Therefore, with increasing blocks, a better recovery is expected. To evaluate the dependencies of the variable nblocks (and therefore the decision to test marginalized or conditionized), a multiple linear regression will be calculated in the first place. Then slope coefficients are being compared to see differences in recovery of parameter tau. Last, regressionlines and violin plots are drawn to illustrate the results.
+
+**H1: One or more variables have an impact on Znblock**
+
+```{r, echo=TRUE}
+# decision between marginalized vs. conditionized testing
+data.w.nblock.mlr <- lm(formula = Znblock ~ Ztau + Ztrue_tau + Zlambda + Ztype + Zdiscount,
+                        data = data.w.mlr)
+
+summary(data.w.nblock.mlr)
+```
+
+**H1: The regression-beta coefficient of nblock = 30 resp. 50, signifficantly differs from a beta-weight from nblock = 50 resp. 100**
+
+```{r, echo=TRUE}
+#set up linear models
+data.w.nblock.lm <- lm(Ztau ~ Ztrue_tau * Znblock,
+                        data = data.w.mlr)
+
+anova(data.w.discount.lm)
+
+#slope coefficients
+data.w.nblock.coef <- lstrends(data.w.nblock.lm,
+                                 "Znblock",
+                                 var = "Ztrue_tau")
+
+#compare slope coefficients
+pairs(data.w.nblock.coef)
+```
+
+```{r, echo=TRUE}
+#violin plots for nblock per par_tau (Ev müssen wir noch konditionieren)
+ggplot(data = data.w,
+       mapping = aes(x = as.factor(true_par_nblock),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = true_par_nblock, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("nblock") +
+  ylab("Tau") +
+  theme_minimal()
+
+# linear regression
+ggplot(data = results.w,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  geom_point(aes(x = true_par_tau,
+                 y = par_tau),
+             alpha = 1 / 5) +
+  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  geom_line(data = results.w[true_par_nblock == 30],
+            aes(x = true_par_tau,
+                y = par_tau),
+            color = "green") +
+  geom_line(data = results.w[true_par_nblock == 50],
+            aes(x = true_par_tau,
+                y = par_tau),
+            color = "blue") +
+  geom_line(data = results.w[true_par_nblock == 100],
+            aes(x = true_par_tau,
+                y = par_tau),
+            color = "yellow") +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+## 4. ability of the GCM to grasp the difficulty of the categories on the tau parameter
+
+Shepard suggests, that of 70 possible combinations of elements characterized by 3 dimensions in psychological space, 6 basic types can be derived. The types vary in the dimensions, a subject has to focus on, and therefore can be put into an order of difficulty.Shepard suggests the following order of difficulty:  I < II < ( I I I , IV, V) < VI. If the GCM function works, depending on the type, goodness of recovery of tau paramter should imitate the suggested order. First I check for significant dependencies on the type variable, then i test for differences in beta weights of recovered tau, last i visually present the results.
+
+**H1: One or more variables have an impact on Ztype**
+
+```{r, echo=TRUE}
+# decision between marginalized vs. conditionized testing
+data.w.type.mlr <- lm(formula = Ztype ~ Ztau + Ztrue_tau + Zlambda + Znblock + Zdiscount,
+                        data = data.w.mlr)
+
+summary(data.w.type.mlr)
+```
+
+**H1: The regression-beta coefficient of type, signifficantly differs from beta-weight of other types**
+
+```{r, echo=TRUE}
+#set up linear models
+data.w.type.lm <- lm(Ztau ~ Ztrue_tau * Ztype,
+                        data = data.w.mlr)
+
+anova(data.w.discount.lm)
+
+#slope coefficients
+data.w.type.coef <- lstrends(data.w.type.lm,
+                                 "Ztype",
+                                 var = "Ztrue_tau")
+
+#compare slope coefficients
+pairs(data.w.type.coef)
+```
+
+```{r, echo=TRUE}
+#violin plots for nblock per par_tau (Ev müssen wir noch konditionieren)
+ggplot(data = data.w,
+       mapping = aes(x = as.factor(true_par_type),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = true_par_type, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("type") +
+  ylab("Tau") +
+  theme_minimal()
+
+# linear regression
+ggplot(data = results.w,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  geom_point(aes(x = true_par_tau,
+                 y = par_tau),
+             alpha = 1 / 5) +
+  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  geom_line(aes(x = true_par_tau,
+                y = par_tau),
+            color = aes(~true_par_type)) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+## 5. Influence of Lambda on the recovery of Tau
+
+Lambda, the speed of learning (sensitivity) is considered to have a positive impact on the recovery of Tau. When a person learns quicker, the recovery of the prabability of implementing an action should be better especially with bigger Tau values. First, i check, what variables have an impact on tau, then i compare beta-weights of lambda 1 and 5, last i visually summarize the results.
+
+**H1: One or more variables have an impact on Zlambda**
+
+```{r, echo=TRUE}
+# decision between marginalized vs. conditionized testing
+data.w.lambda.mlr <- lm(formula = Zlambda ~ Ztau + Ztrue_tau + Ztype + Znblock + Zdiscount,
+                        data = data.w.mlr)
+
+summary(data.w.lambda.mlr)
+```
+
+**H1: The regression-beta coefficient of lambda = 1 signifficantly differs from beta of lambda = 5**
+
+```{r, echo=TRUE}
+#set up linear models
+data.w.lambda.lm <- lm(Ztau ~ Ztrue_tau * Zlambda,
+                        data = data.w.mlr)
+
+anova(data.w.lambda.lm)
+
+#slope coefficients
+data.w.lambda.coef <- lstrends(data.w.type.lm,
+                                 "Zlambda",
+                                 var = "Ztrue_tau")
+
+#compare slope coefficients
+pairs(data.w.lambda.coef)
+```
+
+```{r, echo=TRUE}
+#violin plots for nblock per par_tau (Ev müssen wir noch konditionieren)
+ggplot(data = data.w,
+       mapping = aes(x = as.factor(true_par_lambda),
+                     y = par_tau)) +
+  geom_violin(width = 0.7) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = true_par_lambda, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau, 
+             nrow = 2)+
+  ylim(0, 10) +
+  xlab("type") +
+  ylab("Tau") +
+  theme_minimal()
+
+# linear regression
+ggplot(data = results.w,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  geom_point(aes(x = true_par_tau,
+                 y = par_tau),
+             alpha = 1 / 5) +
+  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
+  geom_line(aes(x = true_par_tau,
+                y = par_tau),
+            color = aes(~true_par_lambda)) +
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
