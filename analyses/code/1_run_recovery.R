@@ -1,25 +1,26 @@
 # Libraries ---------------------------------------------------------------
-library(data.table)
-library(tidyverse)
-library(cognitivemodels)
 library(doParallel)
-library(plotly)
 library(jtools)
 library(pgirmess)
 library(lsmeans)
+library(tidyverse)
+
+# Setwd -------------------------------------------------------------------
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+source("utility_functions.R")
+
 # Setup -------------------------------------------------------------------
-discounts <- 3#c(0,3,8)
-nblocks <- 100#c(30, 50, 100)
-types <- 1#1:6
-true_pars <- expand.grid(lambda = 1,#c(1,5),
+discounts <- c(3,8)#c(0,3,8)
+nblocks <- c(30,100)#c(30, 50, 100)
+types <- c(1,2)#1:6
+true_pars <- expand.grid(lambda = c(1,5),
                          size = 0.333, 
                          shape = 0.333, 
                          r = 1, 
                          q = 1, 
                          b0 = 0.5, 
-                         tau = c(0.1, 0.3, 0.5, 1, 1.5, 2))
-runs <- 1:50 
-
+                         tau = c(0.1, 0.3, 1)) #c(0.1, 0.3, 0.5, 1, 1.5, 2))
+runs <- 1:2 #1:50 
 
 # Shepard dataframe -------------------------------------------------------
 
@@ -54,67 +55,16 @@ registerDoParallel(cluster)
 foreach::getDoParWorkers()
 
 # Parameter recovery simulation -------------------------------------------
-
 # Parameter Recovery
-results <- 
-  foreach(discount = discounts, .combine = "rbind", .packages = c("cognitivemodels", "data.table")) %:% 
-    foreach (nblock = nblocks, .combine = "rbind"  ) %:% 
-      foreach (type = types, .combine = "rbind"  ) %:% 
-        foreach (row = 1:nrow(true_pars), .combine = "rbind") %:%
-          foreach(run = runs, .combine = "rbind") %dopar% 
-  {
-    {
-      {
-        {
-          # make true_par a single row of the expand.grid()
-          true_par <- true_pars[row, ]
-          
-          # replicate all rows of data_shep by the number of nblock
-          data <- data_shep[rep(1:nrow(data_shep), nblock),]
-          
-          # GCM with fixed parameters
-          model <- gcm(data = data,
-                       formula = ~ size + shape + color, 
-                       class = paste("cat", type, sep = "_"), 
-                       choicerule = "softmax", 
-                       fix = true_par,
-                       discount = 0)
-          
-          # Simulation of repeated measurements
-          predictions <- predict(model)
-          
-          {
-          
-            # Add the predicted binominal value ({0,1}) to the data
-            data$simulations <- rbinom(length(predictions) , 1, predictions)
-            
-            # Estimate the parameters given the response (simulations) and the class (cat_)
-            fitted_model <- gcm(data = data,
-                                formula = simulations ~ size + shape + color, 
-                                class = paste("cat", type, sep = "_"), 
-                                choicerule = "softmax", 
-                                discount = discount
-                                )
-            
-            # Save the necessary components to the results
-            data.table(
-              run = run,
-              discount = discount,
-              nblock = nblock,
-              type = type,
-              row = row,
-              names = names(coef(fitted_model)),
-              par = coef(fitted_model),
-              true_par = model$get_par("all"),
-              convergence = fitted_model$fitobj$convergence
-            )
-          }
-        }
-      }
-    }
-  }
+results <- recover(discounts = discounts,
+                    nblocks = nblocks,
+                    types = types,
+                    true_pars = true_pars,
+                    runs = runs,
+                    d = data_shep) 
 
-head(results, 18)
+saveRDS(results, file = "recovery_results.RDS")
+ 
 
 #write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv", row.names = FALSE)
 

@@ -9,17 +9,19 @@ output:
 ---
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #Libraries
+library(emmeans)
+# pkgs <- c("data.table", "tidyverse", " emmeans")
+# lapply(pkgs, library, character.only = TRUE)
 library(data.table)
 library(tidyverse)
-library(lmmeans)
 ```
 
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #Data // l = long; w = wide
-data.l <- fread("")
+data.l <- readRDS("../Rsheets/recovery/recovery_results.RDS")
 data.l <- data.l[convergence != 1][, convergence := NULL]
 data.w <- dcast(data = data.l,
-                formula = run + discount + nblock + type + row ~ names,
+                formula = run + discount + nblock + type + row  ~ names,
                 value.var = c("par", "true_par"))
 ```
 
@@ -33,18 +35,29 @@ In the following, I apply multiple linear regression to see, whether discounting
 data.w.mlr <- data.w
 # Z-transformation to be able to compare beta-weights
 data.w.mlr$Zdiscount <- scale(data.w.mlr$discount)
-data.w.mlr$Znblock <- scale(data.w.mlr$nblock)
-data.w.mlr$Ztype <- scale(data.w.mlr$type)
-data.w.mlr$Zlambda <- scale(data.w.mlr$par_lambda)
+data.w.mlr$nblock <- factor(data.w.mlr$nblock)
+data.w.mlr$type <- factor(data.w.mlr$type)
+data.w.mlr$Zlambda <- scale(data.w.mlr$true_par_lambda)
 data.w.mlr$Ztrue_tau <- scale(data.w.mlr$true_par_tau)
 data.w.mlr$Ztau <- scale(data.w.mlr$par_tau)
 ```
 
 ```{r, echo=TRUE}
-output.mlr <- lm(formula = Ztau ~ Ztrue_tau + Zlambda + Ztype + Znblock + Zdiscount,
-                 data = data.w.mlr)
+fit.tau.full <- lm(formula = Ztrue_tau ~ Ztau:type + Ztau:Zdiscount + Ztau:nblock + Ztau:Ztrue_lambda,
+                   data = data.w.mlr)
 
-summary(output.mlr)
+summary(fit.tau.full)
+
+
+fit.tau <- update(fit.tau.full,
+                  ~ Ztau)
+
+summary(fit.tau)
+
+fit.tau.nolambda <- update(fit.tau.full,
+                           ~ . - Ztau:Ztrue_lambda)
+
+summary(fit.tau.nolambda)
 ```
 
 ** Graphical analysis of the recovery of all parameters other than tau.**
@@ -153,7 +166,7 @@ summary(data.w.discount.mlr)
 
 ```{r, echo=TRUE}
 #set up linear models
-data.w.discount.lm <- lm(Ztau ~ Ztrue_tau * Zdiscount,
+data.w.discount.lm <- lm(Ztau ~ Ztrue_tau:Zdiscount,
                         data = data.w.mlr)
 
 anova(data.w.discount.lm)
@@ -187,22 +200,22 @@ ggplot(data = data.w,
   theme_minimal()
 
 # linear regression
-ggplot(data = results.w,
+ggplot(data = data.w,
        mapping = aes(x = true_par_tau,
                      y = par_tau)) +
   geom_point(aes(x = true_par_tau,
                  y = par_tau),
              alpha = 1 / 5) +
   geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
-  geom_line(data = results.w[true_par_discount == 0],
+  geom_line(data = data.w[true_par_discount == 0],
             aes(x = true_par_tau,
                 y = par_tau),
             color = "green") +
-  geom_line(data = results.w[true_par_discount == 3],
+  geom_line(data = data.w[true_par_discount == 3],
             aes(x = true_par_tau,
                 y = par_tau),
             color = "blue") +
-  geom_line(data = results.w[true_par_discount == 8],
+  geom_line(data = data.w[true_par_discount == 8],
             aes(x = true_par_tau,
                 y = par_tau),
             color = "yellow") +
@@ -342,20 +355,22 @@ ggplot(data = data.w,
   theme_minimal()
 
 # linear regression
-ggplot(data = results.w,
-       mapping = aes(x = true_par_tau,
-                     y = par_tau)) +
-  geom_point(aes(x = true_par_tau,
-                 y = par_tau),
+ggplot(data = data.w,
+       mapping = aes(y = true_par_tau,
+                     x = par_tau)) +
+  geom_point(aes(y = true_par_tau,
+                 x = par_tau),
              alpha = 1 / 5) +
-  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
-  geom_line(aes(x = true_par_tau,
-                y = par_tau),
-            color = aes(~true_par_type)) +
+  geom_line(aes(y = true_par_tau, x = true_par_tau), color = "red") +
+  geom_line(aes(y = true_par_tau,
+                x = par_tau,
+                color = type)) +
   ylim(0,10) +
-  xlab("True tau") +
-  ylab("Median of estimated tau") +
+  ylab("True tau") +
+  xlab("Estimated tau") +
   theme_minimal()
+
+range(data.l)
 ```
 
 ## 5. Influence of Lambda on the recovery of Tau
