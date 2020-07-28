@@ -2,7 +2,6 @@
 library(data.table)
 library(cognitivemodels)
 
-
 #library(devtools)
 #install_github("janajarecki/cognitivemodels@development")
 

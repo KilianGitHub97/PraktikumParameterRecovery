@@ -1,26 +1,15 @@
 # Libraries ---------------------------------------------------------------
-library(doParallel)
-library(jtools)
-library(pgirmess)
-library(lsmeans)
-library(tidyverse)
+pkgs <- c("doParallel",
+          "jtools",
+          "pgirmess",
+          "emmeans",
+          "tidyverse")
+
+lapply(pkgs, library, character.only = TRUE)
 
 # Setwd -------------------------------------------------------------------
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 source("utility_functions.R")
-
-# Setup -------------------------------------------------------------------
-discounts <- c(3,8)#c(0,3,8)
-nblocks <- c(30,100)#c(30, 50, 100)
-types <- c(1,2)#1:6
-true_pars <- expand.grid(lambda = c(1,5),
-                         size = 0.333, 
-                         shape = 0.333, 
-                         r = 1, 
-                         q = 1, 
-                         b0 = 0.5, 
-                         tau = c(0.1, 0.3, 1)) #c(0.1, 0.3, 0.5, 1, 1.5, 2))
-runs <- 1:2 #1:50 
 
 # Shepard dataframe -------------------------------------------------------
 
@@ -41,18 +30,25 @@ data_shep <- data_raw_shepard %>%
           shape = recode(shape, "triangle" = 0, "square" = 1),
           color = recode(color, "black" = 0, "white" = 1))
 
-# data_shep1 <- data_raw_shepard[, c("size", "shape", "color") := sapply(size, function(x) {if(x=="small") 0 
-#                                                                                         else if (x=="large") 1}),
-#                                                                sapply(shape, function(y) {if(y=="triangle") 0
-#                                                                                          else if (y=="square") 1}),
-#                                                                sapply(color, function(z) {if(z == "black") 0
-#                                                                                          else if (z == "white") 1})]
-
 
 # Parallel Setup ----------------------------------------------------------
 cluster <- makeCluster(6)
 registerDoParallel(cluster)
 foreach::getDoParWorkers()
+
+# Setup -------------------------------------------------------------------
+discounts <- c(3,8)#c(0,3,8)
+nblocks <- c(30,100)#c(30, 50, 100)
+types <- c(1,2)#1:6
+true_pars <- expand.grid(lambda = c(1,5),
+                         size = 0.333, 
+                         shape = 0.333, 
+                         r = 1, 
+                         q = 1, 
+                         b0 = 0.5, 
+                         tau = c(0.1, 0.3, 1)) #c(0.1, 0.3, 0.5, 1, 1.5, 2))
+runs <- 1:5 #1:50 
+
 
 # Parameter recovery simulation -------------------------------------------
 # Parameter Recovery
@@ -63,15 +59,12 @@ results <- recover(discounts = discounts,
                     runs = runs,
                     d = data_shep) 
 
-saveRDS(results, file = "recovery_results.RDS")
- 
-
-#write.csv(results,"D:\\Bibliotheken\\Dokumente\\R\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\LambdaTau.csv", row.names = FALSE)
-
+write.csv(results, "../../data/raw/recovery_results.csv")
+saveRDS(results, file = "../../data/raw/recovery_results.RDS")
 
 # reading in parts of the data --------------------------------------------
 
-results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
+#results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat1.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\DiscountTauCat6.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\BlockTau.csv")
 #results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecovery\\Parameter Recovery\\Data\\CatTau.csv")
@@ -80,11 +73,11 @@ results <- fread("D:\\Bibliotheken\\Dokumente\\GitHub\\PraktikumParameterRecover
 # deleting the convergence (if necessary)
 results <- results[convergence != 1]
 
+#spread data.table by par and true_par
+results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
 
 # Calcultation of the means and medians of the runs -----------------------
 
-#spread data.table by par and true_par
-results_wide <- dcast(results, run + discount + nblock + type + row + convergence ~ names, value.var = c("par", "true_par"))
 
 
 
@@ -196,95 +189,6 @@ results_mean_long[, "names" := sapply(names, function(x) {if(x==1) "b0"
                                                           })]
 
 
-
-# Testing for significant differences -------------------------------------
-
-# Add absolute values as new columns
-results_wide$abs_par_b0 <- abs(results_wide$par_b0 - results_wide$true_par_b0)
-results_wide$abs_par_b1 <- abs(results_wide$par_b1 - results_wide$true_par_b1)
-results_wide$abs_par_r <- abs(results_wide$par_r - results_wide$true_par_r)
-results_wide$abs_par_q <- abs(results_wide$par_q - results_wide$true_par_q)
-results_wide$abs_par_lambda <- abs(results_wide$par_lambda - results_wide$true_par_lambda)
-results_wide$abs_par_size <- abs(results_wide$par_size - results_wide$true_par_size)
-results_wide$abs_par_shape <- abs(results_wide$par_shape - results_wide$true_par_shape)
-results_wide$abs_par_color <- abs(results_wide$par_color - results_wide$true_par_color)
-results_wide$abs_par_tau <- abs(results_wide$par_tau - results_wide$true_par_tau)
-
-
-#graphically checking the distribution
-ggplot(data = results_wide,
-       mapping = aes(x = abs_par_tau )) +
-  geom_histogram() +
-  facet_wrap(~discount) +
-  theme_apa()
-
-# formally checking distribution
-shapiro.test(results_wide$abs_par_b0) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_b1) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_r) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_q) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_lambda) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_size) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_color) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_shape) #significant: no normal distibution can be assumed
-shapiro.test(results_wide$abs_par_tau) #significant: no normal distibution can be assumed
-
-#H1: There is a significant difference between the different discounts, when tau is kept constant
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.1,]) #H1 is rejected: p: 0.5147
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.1,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.3,]) #H1 is rejected: 0.9944
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.3,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.5,]) #H1 is rejected: p: 0.9437
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.5,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.7,]) #H1 is rejected: p: 0.3213
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.7,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 0.9,]) #H1 is rejected: p: 0.6356
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 0.9,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.1,]) #H1 is rejected: p: 0.6804
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.1,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.3,]) #H1 is accepted: p: 0.04147 // handle with care, bc. the estimates got worse with increasing tau
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.3,]) #but all comparisons are negative though?
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.5,]) #H1 is rejected: p: 0.8126
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.5,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 1.7,]) #H1 is rejected: p: 0.3262
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 1.7,])
-
-kruskal.test(abs_par_tau ~ discount, results_wide[true_par_tau == 2.0,]) #H1 is rejected: p: 0.7071
-kruskalmc(abs_par_tau ~ discount, results_wide[true_par_tau == 2.0,])
-
-
-# H1: There is a significant difference between the absolute values of tau when the discounts are kept constant
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 1,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 1,] )
-
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 2,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 2,] )
-
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 3,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 3,] )
-
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 4,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 4,] )
-
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 5,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 5,] )
-
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 6,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 6,] )
-
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 7,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 7,] )
-
-kruskal.test(abs_par_tau ~ true_par_tau, results_wide[discount == 8,]) #significant
-kruskalmc(abs_par_tau ~ true_par_tau, results_wide[discount == 8,] )
 
 
 # Impact of omitting the first 0-8 rows on recovering tau -----------------

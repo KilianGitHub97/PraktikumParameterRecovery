@@ -9,20 +9,21 @@ output:
 ---
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #Libraries
-library(emmeans)
-# pkgs <- c("data.table", "tidyverse", " emmeans")
-# lapply(pkgs, library, character.only = TRUE)
-library(data.table)
-library(tidyverse)
+pkgs <- c("data.table",
+          "tidyverse",
+          "emmeans")
+
+lapply(pkgs, library, character.only = TRUE)
 ```
 
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #Data // l = long; w = wide
-data.l <- readRDS("../Rsheets/recovery/recovery_results.RDS")
+data.l <- readRDS("../../data/raw/recovery_results.RDS")
 data.l <- data.l[convergence != 1][, convergence := NULL]
 data.w <- dcast(data = data.l,
-                formula = run + discount + nblock + type + row  ~ names,
-                value.var = c("par", "true_par"))
+                formula = run + discount + nblock + type + row ~ names,
+                value.var = c("par", "true_par"),
+                fun.aggregate = mean)
 ```
 
 ## 1. How does discounting, repetition, lambda and Shepards categories influence the recovery of tau?
@@ -43,7 +44,7 @@ data.w.mlr$Ztau <- scale(data.w.mlr$par_tau)
 ```
 
 ```{r, echo=TRUE}
-fit.tau.full <- lm(formula = Ztrue_tau ~ Ztau:type + Ztau:Zdiscount + Ztau:nblock + Ztau:Ztrue_lambda,
+fit.tau.full <- lm(formula = Ztrue_tau ~ Ztau:type + Ztau:Zdiscount + Ztau:nblock + Ztau:Zlambda,
                    data = data.w.mlr)
 
 summary(fit.tau.full)
@@ -55,7 +56,7 @@ fit.tau <- update(fit.tau.full,
 summary(fit.tau)
 
 fit.tau.nolambda <- update(fit.tau.full,
-                           ~ . - Ztau:Ztrue_lambda)
+                           ~ . - Ztau:Zlambda)
 
 summary(fit.tau.nolambda)
 ```
@@ -69,7 +70,7 @@ Blue lines indicate median of all recovered parameters. Red lines indicate the o
 #recovery of b0
 ggplot(data = results_wide,
        mapping = aes(y = par_b0)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_b0), color = "red") +
   geom_hline(aes(yintercept = median(par_b0)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_b0)+
@@ -79,7 +80,7 @@ ggplot(data = results_wide,
 #recovery of b1
 ggplot(data = results_wide,
        mapping = aes(y = par_b1)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_b1), color = "red") +
   geom_hline(aes(yintercept = median(par_b1)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_b1)+
@@ -88,7 +89,7 @@ ggplot(data = results_wide,
 #recovery of size
 ggplot(data = results_wide,
        mapping = aes(y = par_size)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_size), color = "red") +
   geom_hline(aes(yintercept = median(par_size)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_size)+
@@ -97,7 +98,7 @@ ggplot(data = results_wide,
 #recovery of color
 ggplot(data = results_wide,
        mapping = aes(y = par_color)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_color), color = "red") +
   geom_hline(aes(yintercept = median(par_color)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_color)+
@@ -106,7 +107,7 @@ ggplot(data = results_wide,
 #recovery of shape
 ggplot(data = results_wide,
        mapping = aes(y = par_shape)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_shape), color = "red") +
   geom_hline(aes(yintercept = median(par_shape)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_shape)+
@@ -124,7 +125,7 @@ ggplot(data = results_wide,
 #recovery of q
 ggplot(data = results_wide,
        mapping = aes(y = par_q)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_q), color = "red") +
   geom_hline(aes(yintercept = median(par_q)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_q)+
@@ -133,7 +134,7 @@ ggplot(data = results_wide,
 #recovery of lambda
 ggplot(data = results_wide,
        mapping = aes(y = par_lambda)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_lambda), color = "red") +
   geom_hline(aes(yintercept = median(par_lambda)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_lambda)+
@@ -142,7 +143,7 @@ ggplot(data = results_wide,
 #recovery of tau
 ggplot(data = results_wide,
        mapping = aes(y = par_tau)) +
-  geom_histogram()+
+  geom_histogram() +
   geom_hline(aes(yintercept = true_par_tau), color = "red") +
   geom_hline(aes(yintercept = median(par_tau)), color="blue", linetype="dashed")+
   facet_wrap(~true_par_discount)+
@@ -156,7 +157,7 @@ According to the GCM, omitting the first 3 or 8 rows should lead to better recov
 **There is at least one significant variable that predicts Zdiscount**
 
 ```{r, echo=TRUE}
-data.w.discount.mlr <- lm(formula = Zdiscount ~ Ztau + Ztrue_tau + Zlambda + Ztype + Znblock,
+data.w.discount.mlr <- lm(formula = Zdiscount ~ Ztrue_tau + Z_true_lambda + Ztype + Znblock,
                         data = data.w.mlr)
 
 summary(data.w.discount.mlr)
@@ -234,7 +235,7 @@ According to the GCM, the more repetitive blocks a subject will be able to learn
 
 ```{r, echo=TRUE}
 # decision between marginalized vs. conditionized testing
-data.w.nblock.mlr <- lm(formula = Znblock ~ Ztau + Ztrue_tau + Zlambda + Ztype + Zdiscount,
+data.w.nblock.mlr <- lm(formula = Znblock ~ Ztrue_tau + Ztrue_lambda + Ztype + Zdiscount,
                         data = data.w.mlr)
 
 summary(data.w.nblock.mlr)
@@ -244,7 +245,7 @@ summary(data.w.nblock.mlr)
 
 ```{r, echo=TRUE}
 #set up linear models
-data.w.nblock.lm <- lm(Ztau ~ Ztrue_tau * Znblock,
+data.w.nblock.lm <- lm(Ztau ~ Ztrue_tau:Znblock,
                         data = data.w.mlr)
 
 anova(data.w.discount.lm)
@@ -311,7 +312,7 @@ Shepard suggests, that of 70 possible combinations of elements characterized by 
 
 ```{r, echo=TRUE}
 # decision between marginalized vs. conditionized testing
-data.w.type.mlr <- lm(formula = Ztype ~ Ztau + Ztrue_tau + Zlambda + Znblock + Zdiscount,
+data.w.type.mlr <- lm(formula = Ztype ~ Ztrue_tau + Ztrue_lambda + Znblock + Zdiscount,
                         data = data.w.mlr)
 
 summary(data.w.type.mlr)
@@ -381,7 +382,7 @@ Lambda, the speed of learning (sensitivity) is considered to have a positive imp
 
 ```{r, echo=TRUE}
 # decision between marginalized vs. conditionized testing
-data.w.lambda.mlr <- lm(formula = Zlambda ~ Ztau + Ztrue_tau + Ztype + Znblock + Zdiscount,
+data.w.lambda.mlr <- lm(formula = Ztrue_lambda ~ Ztrue_tau + Ztype + Znblock + Zdiscount,
                         data = data.w.mlr)
 
 summary(data.w.lambda.mlr)
@@ -391,7 +392,7 @@ summary(data.w.lambda.mlr)
 
 ```{r, echo=TRUE}
 #set up linear models
-data.w.lambda.lm <- lm(Ztau ~ Ztrue_tau * Zlambda,
+data.w.lambda.lm <- lm(Ztau ~ Ztrue_tau:Zlambda,
                         data = data.w.mlr)
 
 anova(data.w.lambda.lm)
