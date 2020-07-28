@@ -1,3 +1,5 @@
+library(microbenchmark)
+install.packages("microbenchmark")
 # Libraries ---------------------------------------------------------------
 pkgs <- c("doParallel",
           "jtools",
@@ -37,27 +39,28 @@ registerDoParallel(cluster)
 foreach::getDoParWorkers()
 
 # Setup -------------------------------------------------------------------
-discounts <- c(3,8)#c(0,3,8)
-nblocks <- c(30,100)#c(30, 50, 100)
-types <- c(1,2)#1:6
+discounts <- c(0, 8)
+nblocks <- c(30, 100)
+types <- 1:6
 true_pars <- expand.grid(lambda = c(1,5),
                          size = 0.333, 
                          shape = 0.333, 
                          r = 1, 
                          q = 1, 
                          b0 = 0.5, 
-                         tau = c(0.1, 0.3, 1)) #c(0.1, 0.3, 0.5, 1, 1.5, 2))
-runs <- 1:5 #1:50 
+                         tau = c(0.1, 0.3, 0.5, 1, 1.5, 2))
+runs <- 1:50 
 
 
 # Parameter recovery simulation -------------------------------------------
 # Parameter Recovery
+microbenchmark(
 results <- recover(discounts = discounts,
                     nblocks = nblocks,
                     types = types,
                     true_pars = true_pars,
                     runs = runs,
-                    d = data_shep) 
+                    d = data_shep), times = 50)
 
 write.csv(results, "../../data/raw/recovery_results.csv")
 saveRDS(results, file = "../../data/raw/recovery_results.RDS")

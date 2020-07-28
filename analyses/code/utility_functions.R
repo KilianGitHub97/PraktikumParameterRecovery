@@ -3,7 +3,7 @@ library(data.table)
 library(cognitivemodels)
 
 #library(devtools)
-#install_github("janajarecki/cognitivemodels@development")
+#install_github("janajarecki/cognitivemodels@development", force = TRUE)
 
 # Parameter recovery simulation -------------------------------------------
 # Parameter Recovery
@@ -58,7 +58,7 @@ recover <- function(discounts, nblocks, types, true_pars, runs, d = data_shep){
               row = row,
               names = names(coef(fitted_model)),
               par = coef(fitted_model),
-              true_par = model$get_par("all"),
+              true_par = model$get_par("all")[names(coef(fitted_model))],
               convergence = fitted_model$fitobj$convergence
             )
           }
