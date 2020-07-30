@@ -1,5 +1,4 @@
-library(microbenchmark)
-install.packages("microbenchmark")
+install.packages("MASS")
 # Libraries ---------------------------------------------------------------
 pkgs <- c("doParallel",
           "jtools",
@@ -34,7 +33,7 @@ data_shep <- data_raw_shepard %>%
 
 
 # Parallel Setup ----------------------------------------------------------
-cluster <- makeCluster(6)
+cluster <- makeCluster(8)
 registerDoParallel(cluster)
 foreach::getDoParWorkers()
 
@@ -54,13 +53,12 @@ runs <- 1:50
 
 # Parameter recovery simulation -------------------------------------------
 # Parameter Recovery
-microbenchmark(
-results <- recover(discounts = discounts,
+results <- recover( discounts = discounts,
                     nblocks = nblocks,
                     types = types,
                     true_pars = true_pars,
                     runs = runs,
-                    d = data_shep), times = 50)
+                    d = data_shep)
 
 write.csv(results, "../../data/raw/recovery_results.csv")
 saveRDS(results, file = "../../data/raw/recovery_results.RDS")
