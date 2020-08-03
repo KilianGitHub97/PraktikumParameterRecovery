@@ -11,9 +11,8 @@ output:
 #Libraries
 pkgs <- c("data.table",
           "tidyverse",
-          "emmeans",
           "Hmisc",
-          "MASS")
+          "psych")
 
 lapply(pkgs, library, character.only = TRUE)
 ```
@@ -27,21 +26,20 @@ data.w <- dcast(data = data.l,
                 value.var = c("par", "true_par"))
 ```
 
-There are '(100800 - nrow(data.l))/7' cases, where the GCM could not find optimal free parameters.
+There are 31 cases, where the GCM could not find optimal free parameters.
 
 ## 1. What interdependencies can be found between the variables?
 
 In the following, I compile a correlation matrix to see, whether there are interdependencies between different variables. Significant correlation indicates some kind of systematic influence between the two variables involved. First, "row" and "run" columns are deleted from the data frame, that is because "run" is not expected to have significant influence and because all information of the "row" column if fully covered by the "true_par_lambda" and "true_par_tau" columns. Second, Spearman correlation is used to compile the correlation matrix. The nonparametric method is used, since not all the data is expected to meet criteria for pearson correlation. Third, correlation matrix is transformed to be in a more accessible format. Fourth, significant p-values are filtered. Knowing interdependencies gathers evidence for the decision to plot and test data either marginalized or conditioned.
 
-**H1: There are significant dependencies between variable x and y**
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #Prepare data for correlation matrix
 data.w.cor <- data.w[, -c("row", "run")]
 
 #correlation matrix to check for interdependencies between the variables. Nonparametric method is used, since data did not meet criteria for pearson
 cormat <- rcorr(as.matrix(data.w.cor), type = "spearman")
-cormat.r <- as.data.frame(t(x$r))
-cormat.p <- as.data.frame(x$P)
+cormat.r <- as.data.frame(t(cormat$r))
+cormat.p <- as.data.frame(cormat$P)
 data.cor <-data.table(Var1 = rownames(cormat.r)[row(cormat.r)[upper.tri(cormat.r)]], 
                       Var2 = colnames(cormat.r)[col(cormat.r)[upper.tri(cormat.r)]], 
                       corr=round(cormat.r[upper.tri(cormat.r)],4),
@@ -51,8 +49,9 @@ data.cor <-data.table(Var1 = rownames(cormat.r)[row(cormat.r)[upper.tri(cormat.r
 data.cor.rel <- data.cor[corr != 0 & corr != 1 & corr != -1 & p < 0.05]
 ```
 
-** Graphical analysis of the recovery of all parameters**
-For every parameters, dependencies from other variables will be checked. Depending on this, the plots are designed as meaningful as possible. 
+**Graphical analysis of the recovery of all parameters**
+
+For every parameter, dependencies on other variables will be checked. Depending on this, the plots are designed as meaningful as possible. 
 
 ```{r, echo=TRUE}
 #recovery of b0
@@ -83,7 +82,7 @@ ggplot(data = data.w.b1,
   geom_histogram(bins = 100) +
   geom_hline(aes(yintercept = true_par_b1), color = "red") +
   geom_hline(aes(yintercept = med_b1), color="blue", linetype="dashed")+
-  facet_grid(true_par_tau ~ type)
+  facet_grid(true_par_tau ~ type) +
   theme_minimal()
 
 #recovery of size
@@ -113,7 +112,7 @@ ggplot(data = data.w.color,
   geom_histogram(bins = 100) +
   geom_hline(aes(yintercept = true_par_color), color = "red") +
   geom_hline(aes(yintercept = med_color), color="blue", linetype="dashed")+
-  facet_grid(true_par_lambda ~ nblock + true_par_tau)
+  facet_grid(true_par_lambda ~ nblock + true_par_tau) +
   theme_minimal()
 
 #recovery of shape
@@ -158,60 +157,58 @@ ggplot(data = data.w.tau,
   geom_histogram(bins = 100) +
   geom_hline(aes(yintercept = true_par_tau), color = "red") +
   geom_hline(aes(yintercept = med_tau), color="blue", linetype="dashed")+ 
-  facet_grid(nblock ~ true_par_tau)
+  facet_grid(nblock ~ true_par_tau) +
   theme_minimal()
 ```
 
 ```{r, echo=TRUE, results="hide", message=FALSE}
-data.w.mlr <- data.w
-#Z-transformation
-data.w.mlr$Ztau <- scale(data.w.mlr$par_tau)
-data.w.mlr$Ztrue_tau <- scale(data.w.mlr$true_par_tau)
+#subset data for further testing
+cormat.test <- data.table(data.w[, c("par_tau", "true_par_tau" , "discount", "nblock", "type", "true_par_lambda")])
 ```
 
 ## 2. Impact of omitting the first 3 and 8 rows on recovering tau
 
-According to the GCM, omitting the first 3 or 8 rows should lead to better recovery of the tau parameter. Reason being, that the machine learning algorithm does not make accurate decisions on early rows of training.  To further test the effect of omitting the aforementioned rows, i compare their beta-weights. The intercepts can be ignored, since z-transformed variables are being used. A total of 3 comparisons will be made: 0 vs 3, 0 vs 8, 3 vs 8. 
-
-**There is at least one significant variable that predicts Zdiscount**
+According to the GCM, omitting the first 3 or 8 rows should lead to better recovery of the tau parameter. Reason being, that the machine learning algorithm does not make accurate decisions on early rows of training.  To further test the effect of omitting the aforementioned rows, spearman correlation coefficients will be compared in a correlation test. Since nblock seems to have impact on par_tau (although correlation is small and could have emerged due to randomness), separate testing for nblock = 30 and nblock = 100 is advised.
 
 ```{r, echo=TRUE}
-data.cor.rel[Var1 == "par_tau" | Var2 == "par_tau"]
+# decision between marginalized vs. conditionized testing
+data.cor.rel[Var1 == "par_tau" | Var2 == "par_tau"] #influence on tau
+data.cor.rel[Var1 == "discount" | Var2 == "discount"]#influence on discount
+data.cor.rel[Var1 == "true_par_tau" | Var2 == "true_par_tau"] #influence on true tau
 ```
 
-**H1: The regression-beta coefficient of a regressionmodel with 0, resp. 3 rows omitted, signifficantly differs from a regressionmodel with 3 resp. 8 rows removed.**
+```{r, echo=TRUE, results="hide", message=FALSE}
+#subset discounts
+cormat.test.d0n30 <- cormat.test[discount == 0 & nblock == 30]
+cormat.test.d8n30 <- cormat.test[discount == 8 & nblock == 30]
+cormat.test.d0n100 <- cormat.test[discount == 0 & nblock == 100]
+cormat.test.d8n100 <- cormat.test[discount == 8 & nblock == 100]
+```
 
 ```{r, echo=TRUE}
-#data.frames for separate testing
-data.w.mlr.30 <- data.w.mlr[nblock == 30]
-data.w.mlr.100 <- data.w.mlr[nblock == 100]
+#correlation test for nblock = 30
+r.test(n = nrow(cormat.test.d0n30),
+       n2 = nrow(cormat.test.d8n30),
+       r12 = cor(cormat.test.d0n30$par_tau,
+                 cormat.test.d0n30$true_par_tau,
+                 method = "spearman"),
+       r34 = cor(cormat.test.d8n30$par_tau,
+                 cormat.test.d8n30$true_par_tau,
+                 method = "spearman"))
 
-#set up linear models
-data.w.discount.lm.30 <- lm(par_tau ~ true_par_tau:factor(discount),
-                        data = data.w.mlr.30)
-data.w.discount.lm.100 <- lm(Ztau ~ Ztrue_tau:factor(discount),
-                        data = data.w.mlr.100)
-
-plot(data.w.discount.lm.30)
-plot(data.w.discount.lm.100)
-
-anova(data.w.discount.lm.30)
-anova(data.w.discount.lm.100)
-
-
-#slope coefficients
-data.w.discount.coef.30 <- lstrends(data.w.discount.lm.30,
-                                 "discount",
-                                 var = "Ztrue_tau")
-data.w.discount.coef.100 <- lstrends(data.w.discount.lm.100,
-                                 "discount",
-                                 var = "Ztrue_tau")
-
-#compare slope coefficients
-pairs(data.w.discount.coef.30)
-pairs(data.w.discount.coef.100)
+#correlation test for nblock = 100
+r.test(n = nrow(cormat.test.d0n100),
+       n2 = nrow(cormat.test.d8n100),
+       r12 = cor(cormat.test.d0n100$par_tau,
+                 cormat.test.d0n100$true_par_tau,
+                 method = "spearman"),
+       r34 = cor(cormat.test.d8n100$par_tau,
+                 cormat.test.d8n100$true_par_tau,
+                 method = "spearman"))
 
 ```
+
+**Graphical evaluation**
 
 ```{r, echo=TRUE}
 #violin plots for discount per par_tau (Ev müssen wir noch konditionieren)
@@ -231,7 +228,7 @@ ggplot(data = data.w,
   ylab("Tau") +
   theme_minimal()
 
-# linear regression
+# line plot
 ggplot(data = data.w,
        mapping = aes(x = true_par_tau,
                      y = par_tau)) +
@@ -259,75 +256,67 @@ ggplot(data = data.w,
 
 ## 3. Impact of training with multiple blocks on recovery of tau
 
-According to the GCM, the more repetitive blocks a subject will be able to learn with, the better should the categorization accuracy get during. Therefore, with increasing blocks, a better recovery is expected. To evaluate the dependencies of the variable nblocks (and therefore the decision to test marginalized or conditionized), a multiple linear regression will be calculated in the first place. Then slope coefficients are being compared to see differences in recovery of parameter tau. Last, regressionlines and violin plots are drawn to illustrate the results.
-
-**H1: One or more variables have an impact on Znblock**
+According to the GCM, the more repetitive blocks a subject will be able to learn with, the better the categorization accuracy should get. Therefore, with increasing blocks, a better recovery is expected. There are no significant dependencies on nblock. Therefore, its ok to not further subset the data. 
 
 ```{r, echo=TRUE}
 # decision between marginalized vs. conditionized testing
-data.w.nblock.mlr <- lm(formula = nblock ~ Ztrue_tau + true_par_lambda + type + Zdiscount,
-                        data = data.w.mlr)
-
-summary(data.w.nblock.mlr)
+data.cor.rel[Var1 == "nblock" | Var2 == "nblock"]#influence on nblock
 ```
 
-**H1: The regression-beta coefficient of nblock = 30 resp. 50, signifficantly differs from a beta-weight from nblock = 50 resp. 100**
-
-```{r, echo=TRUE}
-#set up linear models
-data.w.nblock.lm <- lm(Ztau ~ Ztrue_tau:Znblock,
-                        data = data.w.mlr)
-
-anova(data.w.discount.lm)
-
-#slope coefficients
-data.w.nblock.coef <- lstrends(data.w.nblock.lm,
-                                 "Znblock",
-                                 var = "Ztrue_tau")
-
-#compare slope coefficients
-pairs(data.w.nblock.coef)
+```{r, echo=TRUE, results="hide", message=FALSE}
+#subset nblock
+cormat.test.n30 <- cormat.test[nblock == 30]
+cormat.test.n100 <- cormat.test[nblock == 100]
 ```
 
 ```{r, echo=TRUE}
-#violin plots for nblock per par_tau (Ev müssen wir noch konditionieren)
+#correlation test
+r.test(n = nrow(cormat.test.n30),
+       n2 = nrow(cormat.test.n100),
+       r12 = cor(cormat.test.n30$par_tau,
+                 cormat.test.n30$true_par_tau,
+                 method = "spearman"),
+       r34 = cor(cormat.test.n100$par_tau,
+                 cormat.test.n100$true_par_tau,
+                 method = "spearman"))
+```
+
+**Graphical analysis**
+
+```{r, echo=TRUE}
+#violin plots for nblock per par_tau
 ggplot(data = data.w,
-       mapping = aes(x = as.factor(true_par_nblock),
+       mapping = aes(x = as.factor(nblock),
                      y = par_tau)) +
-  geom_violin(width = 0.7) +
+  geom_violin(width = 0.9) +
   stat_summary(fun = "median", 
                geom = "point") +
-  geom_line(aes(x = true_par_nblock, 
+  geom_line(aes(x = par_tau, 
                 y = true_par_tau), 
             color = "red", 
             size = 0.5) +
-  facet_wrap(~true_par_tau, 
-             nrow = 2)+
+  facet_wrap(~true_par_tau)+
   ylim(0, 10) +
   xlab("nblock") +
   ylab("Tau") +
   theme_minimal()
 
-# linear regression
-ggplot(data = results.w,
+# line plot
+ggplot(data = data.w,
        mapping = aes(x = true_par_tau,
                      y = par_tau)) +
   geom_point(aes(x = true_par_tau,
                  y = par_tau),
-             alpha = 1 / 5) +
-  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
-  geom_line(data = results.w[true_par_nblock == 30],
-            aes(x = true_par_tau,
-                y = par_tau),
-            color = "green") +
-  geom_line(data = results.w[true_par_nblock == 50],
-            aes(x = true_par_tau,
-                y = par_tau),
-            color = "blue") +
-  geom_line(data = results.w[true_par_nblock == 100],
-            aes(x = true_par_tau,
-                y = par_tau),
-            color = "yellow") +
+             alpha = 1 / 20) +
+  geom_line(aes(x = true_par_tau,
+                y = true_par_tau),
+            color = "red") +
+  stat_summary(aes(group = nblock),
+               fun = median,
+               geom = "line",
+               color = c(rep("green", 6),  #nblock = 30
+                         rep("blue", 6)    #nblock = 100
+                         ))+
   ylim(0,10) +
   xlab("True tau") +
   ylab("Median of estimated tau") +
@@ -336,136 +325,168 @@ ggplot(data = results.w,
 
 ## 4. ability of the GCM to grasp the difficulty of the categories on the tau parameter
 
-Shepard suggests, that of 70 possible combinations of elements characterized by 3 dimensions in psychological space, 6 basic types can be derived. The types vary in the dimensions, a subject has to focus on, and therefore can be put into an order of difficulty.Shepard suggests the following order of difficulty:  I < II < ( I I I , IV, V) < VI. If the GCM function works, depending on the type, goodness of recovery of tau paramter should imitate the suggested order. First I check for significant dependencies on the type variable, then i test for differences in beta weights of recovered tau, last i visually present the results.
-
-**H1: One or more variables have an impact on Ztype**
+Shepard suggests, that of 70 possible combinations of elements characterized by 3 dimensions in psychological space, 6 basic types can be derived. The types vary in the dimensions, a subject has to focus on, and therefore can be put into an order of difficulty.Shepard suggests the following order of difficulty:  I < II < ( I I I , IV, V) < VI. If the GCM function works, depending on the type, goodness of recovery of tau paramter should imitate the suggested order. No significant dependency on type can be found.
 
 ```{r, echo=TRUE}
 # decision between marginalized vs. conditionized testing
-data.w.type.mlr <- lm(formula = Ztype ~ Ztrue_tau + Ztrue_lambda + Znblock + Zdiscount,
-                        data = data.w.mlr)
-
-summary(data.w.type.mlr)
+data.cor.rel[Var1 == "type" | Var2 == "type"]#influence on discount
 ```
 
-**H1: The regression-beta coefficient of type, signifficantly differs from beta-weight of other types**
-
-```{r, echo=TRUE}
-#set up linear models
-data.w.type.lm <- lm(Ztau ~ Ztrue_tau * Ztype,
-                        data = data.w.mlr)
-
-anova(data.w.discount.lm)
-
-#slope coefficients
-data.w.type.coef <- lstrends(data.w.type.lm,
-                                 "Ztype",
-                                 var = "Ztrue_tau")
-
-#compare slope coefficients
-pairs(data.w.type.coef)
+```{r, echo=TRUE, results="hide", message=FALSE}
+#subset types
+cormat.test.t1 <- cormat.test[type == 1]
+cormat.test.t2 <- cormat.test[type == 2]
+cormat.test.t3 <- cormat.test[type == 3]
+cormat.test.t4 <- cormat.test[type == 4]
+cormat.test.t5 <- cormat.test[type == 5]
+cormat.test.t6 <- cormat.test[type == 6]
 ```
 
 ```{r, echo=TRUE}
-#violin plots for nblock per par_tau (Ev müssen wir noch konditionieren)
+#calculate correlation test for all expressions of type
+cormat.res <- list()
+rtest.results <- list()
+
+l = 1
+
+for (i in 1:6) {
+  for (j in 1:6) {
+    #select components to apply r.test
+    component1 <- get(paste0("cormat.test.t", i))
+    component2 <- get(paste0("cormat.test.t", j))
+    
+    #calculate r.test and save it to rtest.results
+    rtest.results[[l]] <- r.test(n = nrow(component1),
+                                 n2 = nrow(component2),
+                                 r12 = cor(component1$par_tau,
+                                           component1$true_par_tau,
+                                           method = "spearman"),
+                                 r34 = cor(component2$par_tau,
+                                           component2$true_par_tau,
+                                           method = "spearman"))
+    
+    #draw compatible list to later convert to data.table
+    cormat.res[[l]] <-  data.table(
+        component1 = paste0("type=", i),
+        component2 = paste0("type=", j),
+        p_value = round(rtest.results[[l]]$p, 4),
+        z_score = round(rtest.results[[l]]$z, 4)
+    )
+    
+    l = l + 1
+  }
+}
+
+cormat.res <- rbindlist(cormat.res)
+cormat.res <- cormat.res[component1 != component2]
+print(cormat.res)
+```
+
+**Graphical analysis**
+
+```{r, echo=TRUE}
+#violin plots for par_tau per type
 ggplot(data = data.w,
-       mapping = aes(x = as.factor(true_par_type),
+       mapping = aes(x = as.factor(type),
                      y = par_tau)) +
-  geom_violin(width = 0.7) +
+  geom_violin(width = 0.9) +
   stat_summary(fun = "median", 
                geom = "point") +
-  geom_line(aes(x = true_par_type, 
+  geom_line(aes(x = par_tau, 
                 y = true_par_tau), 
             color = "red", 
             size = 0.5) +
-  facet_wrap(~true_par_tau, 
-             nrow = 2)+
+  facet_wrap(~true_par_tau)+
   ylim(0, 10) +
   xlab("type") +
   ylab("Tau") +
   theme_minimal()
 
-# linear regression
+# line plot
 ggplot(data = data.w,
-       mapping = aes(y = true_par_tau,
-                     x = par_tau)) +
-  geom_point(aes(y = true_par_tau,
-                 x = par_tau),
-             alpha = 1 / 5) +
-  geom_line(aes(y = true_par_tau, x = true_par_tau), color = "red") +
-  geom_line(aes(y = true_par_tau,
-                x = par_tau,
-                color = type)) +
-  ylim(0,10) +
-  ylab("True tau") +
-  xlab("Estimated tau") +
-  theme_minimal()
-
-range(data.l)
-```
-
-## 5. Influence of Lambda on the recovery of Tau
-
-Lambda, the speed of learning (sensitivity) is considered to have a positive impact on the recovery of Tau. When a person learns quicker, the recovery of the prabability of implementing an action should be better especially with bigger Tau values. First, i check, what variables have an impact on tau, then i compare beta-weights of lambda 1 and 5, last i visually summarize the results.
-
-**H1: One or more variables have an impact on Zlambda**
-
-```{r, echo=TRUE}
-# decision between marginalized vs. conditionized testing
-data.w.lambda.mlr <- lm(formula = Ztrue_lambda ~ Ztrue_tau + Ztype + Znblock + Zdiscount,
-                        data = data.w.mlr)
-
-summary(data.w.lambda.mlr)
-```
-
-**H1: The regression-beta coefficient of lambda = 1 signifficantly differs from beta of lambda = 5**
-
-```{r, echo=TRUE}
-#set up linear models
-data.w.lambda.lm <- lm(Ztau ~ Ztrue_tau:Zlambda,
-                        data = data.w.mlr)
-
-anova(data.w.lambda.lm)
-
-#slope coefficients
-data.w.lambda.coef <- lstrends(data.w.type.lm,
-                                 "Zlambda",
-                                 var = "Ztrue_tau")
-
-#compare slope coefficients
-pairs(data.w.lambda.coef)
-```
-
-```{r, echo=TRUE}
-#violin plots for nblock per par_tau (Ev müssen wir noch konditionieren)
-ggplot(data = data.w,
-       mapping = aes(x = as.factor(true_par_lambda),
-                     y = par_tau)) +
-  geom_violin(width = 0.7) +
-  stat_summary(fun = "median", 
-               geom = "point") +
-  geom_line(aes(x = true_par_lambda, 
-                y = true_par_tau), 
-            color = "red", 
-            size = 0.5) +
-  facet_wrap(~true_par_tau, 
-             nrow = 2)+
-  ylim(0, 10) +
-  xlab("type") +
-  ylab("Tau") +
-  theme_minimal()
-
-# linear regression
-ggplot(data = results.w,
        mapping = aes(x = true_par_tau,
                      y = par_tau)) +
   geom_point(aes(x = true_par_tau,
                  y = par_tau),
-             alpha = 1 / 5) +
-  geom_line(aes(x = true_par_tau, y = true_par_tau), color = "red") +
+             alpha = 1 / 20) +
   geom_line(aes(x = true_par_tau,
-                y = par_tau),
-            color = aes(~true_par_lambda)) +
+                y = true_par_tau),
+            color = "red") +
+  stat_summary(aes(group = type),
+               fun = median,
+               geom = "line",
+               color = c(rep("blue", 36)
+                         ))+
+  facet_wrap(~type)+
+  ylim(0,10) +
+  xlab("True tau") +
+  ylab("Median of estimated tau") +
+  theme_minimal()
+```
+
+## 5. Influence of Lambda on the recovery of Tau
+
+Lambda, the speed of learning (sensitivity) is considered to have a positive impact on the recovery of Tau. When a person learns quicker, the recovery of the prabability of implementing an action should be better especially with bigger Tau values.No significant dependencies on true_par_lambda can be found. 
+
+```{r, echo=TRUE}
+# decision between marginalized vs. conditionized testing
+data.cor.rel[Var1 == "true_par_lambda" | Var2 == "true_par_lambda"]#influence on discount
+```
+
+```{r, echo=TRUE, results="hide", message=FALSE}
+#subset discounts
+cormat.test.lam1 <- cormat.test[true_par_lambda == 1]
+cormat.test.lam5 <- cormat.test[true_par_lambda == 5]
+```
+
+```{r, echo=TRUE}
+#correlation test
+r.test(n = nrow(cormat.test.lam1),
+       n2 = nrow(cormat.test.lam5),
+       r12 = cor(cormat.test.lam1$par_tau,
+                 cormat.test.lam1$true_par_tau,
+                 method = "spearman"),
+       r34 = cor(cormat.test.lam5$par_tau,
+                 cormat.test.lam5$true_par_tau,
+                 method = "spearman"))
+```
+
+**Graphical analysis**
+
+```{r, echo=TRUE}
+#violin plots for true lambda per par_tau
+ggplot(data = data.w,
+       mapping = aes(x = as.factor(true_par_lambda),
+                     y = par_tau)) +
+  geom_violin(width = 0.9) +
+  stat_summary(fun = "median", 
+               geom = "point") +
+  geom_line(aes(x = par_tau, 
+                y = true_par_tau), 
+            color = "red", 
+            size = 0.5) +
+  facet_wrap(~true_par_tau)+
+  ylim(0, 10) +
+  xlab("Lambda") +
+  ylab("Tau") +
+  theme_minimal()
+
+# line plot
+ggplot(data = data.w,
+       mapping = aes(x = true_par_tau,
+                     y = par_tau)) +
+  geom_point(aes(x = true_par_tau,
+                 y = par_tau),
+             alpha = 1 / 20) +
+  geom_line(aes(x = true_par_tau,
+                y = true_par_tau),
+            color = "red") +
+  stat_summary(aes(group = true_par_lambda),
+               fun = median,
+               geom = "line",
+               color = c(rep("green", 6),  #lambda = 1
+                         rep("blue", 6)    #lambda = 5
+                         ))+
   ylim(0,10) +
   xlab("True tau") +
   ylab("Median of estimated tau") +

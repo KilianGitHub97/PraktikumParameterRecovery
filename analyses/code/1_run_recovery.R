@@ -1,4 +1,4 @@
-install.packages("MASS")
+install.packages("psych")
 # Libraries ---------------------------------------------------------------
 pkgs <- c("doParallel",
           "jtools",
