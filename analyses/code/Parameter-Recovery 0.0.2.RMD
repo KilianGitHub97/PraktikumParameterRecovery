@@ -5,7 +5,8 @@ date: "22 7 2020"
 output: 
   html_document:
     theme: united
-    toc: yes
+    toc: true
+    toc_float: true
 ---
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #Libraries
@@ -52,7 +53,7 @@ data.cor.rel <- data.cor[corr != 0 & corr != 1 & corr != -1 & p < 0.05]
 **Graphical analysis of the recovery of all parameters**
 
 For every parameter, dependencies on other variables will be checked. Depending on this, the plots are designed as meaningful as possible. 
-
+### graph 1
 ```{r, echo=TRUE}
 #recovery of b0
 data.cor.rel[Var1 == "par_b0" | Var2 == "par_b0"]
@@ -68,7 +69,9 @@ ggplot(data = data.w.b0,
   geom_hline(aes(yintercept = med_b0), color="blue", linetype="dashed")+
   facet_grid(true_par_tau ~ type)+
   theme_minimal()
-
+```
+### graph 2
+```{r, echo=TRUE}
 
 #recovery of b1
 data.cor.rel[Var1 == "par_b1" | Var2 == "par_b1"]
@@ -84,7 +87,9 @@ ggplot(data = data.w.b1,
   geom_hline(aes(yintercept = med_b1), color="blue", linetype="dashed")+
   facet_grid(true_par_tau ~ type) +
   theme_minimal()
-
+```
+### graph 3
+```{r, echo=TRUE}
 #recovery of size
 data.cor.rel[Var1 == "par_size" | Var2 == "par_size"]
 
@@ -99,7 +104,9 @@ ggplot(data = data.w.size,
   geom_hline(aes(yintercept = med_size, group = type), color="blue", linetype="dashed")+
   facet_wrap(~type)+
   theme_minimal()
-
+```
+###graph 4
+```{r, echo=TRUE}
 #recovery of color
 data.cor.rel[Var1 == "par_color" | Var2 == "par_color"]
 
@@ -114,6 +121,9 @@ ggplot(data = data.w.color,
   geom_hline(aes(yintercept = med_color), color="blue", linetype="dashed")+
   facet_grid(true_par_lambda ~ nblock + true_par_tau) +
   theme_minimal()
+```
+### graph 5
+```{r, echo=TRUE}
 
 #recovery of shape
 data.cor.rel[Var1 == "par_shape" | Var2 == "par_shape"]
@@ -129,7 +139,9 @@ ggplot(data = data.w.shape,
   geom_hline(aes(yintercept = med_shape), color="blue", linetype="dashed") +
   facet_grid(type ~ true_par_tau + true_par_lambda) +
   theme_minimal()
-
+```
+### graph 6
+```{r, echo=TRUE}
 #recovery of lambda
 data.cor.rel[Var1 == "par_lambda" | Var2 == "par_lambda"]
 
@@ -144,7 +156,9 @@ ggplot(data = data.w.lambda,
   geom_hline(aes(yintercept = med_lambda), color="blue", linetype="dashed")+
   facet_grid(true_par_lambda + true_par_tau ~ type)+
   theme_minimal()
-
+```
+#graph 7
+```{r, echo=TRUE}
 #recovery of tau
 data.cor.rel[Var1 == "par_tau" | Var2 == "par_tau"]
 
@@ -208,7 +222,7 @@ r.test(n = nrow(cormat.test.d0n100),
 ```
 
 **Graphical evaluation**
-
+### graph 8
 ```{r, echo=TRUE}
 #violin plots for discount per par_tau (Ev müssen wir noch konditionieren)
 ggplot(data = data.w,
@@ -226,7 +240,10 @@ ggplot(data = data.w,
   xlab("Discount") +
   ylab("Tau") +
   theme_minimal()
+```
 
+### graph 9
+```{r, echo=TRUE}
 # line plot
 ggplot(data = data.w,
        mapping = aes(x = true_par_tau,
@@ -281,7 +298,7 @@ r.test(n = nrow(cormat.test.n30),
 ```
 
 **Graphical analysis**
-
+### graph 10
 ```{r, echo=TRUE}
 #violin plots for nblock per par_tau
 ggplot(data = data.w,
@@ -299,7 +316,9 @@ ggplot(data = data.w,
   xlab("nblock") +
   ylab("Tau") +
   theme_minimal()
-
+```
+### graph 11
+```{r, echo=TRUE}
 # line plot
 ggplot(data = data.w,
        mapping = aes(x = true_par_tau,
@@ -400,7 +419,7 @@ print(cormat.res.rel)
 ```
 
 **Graphical analysis**
-
+### graph 12
 ```{r, echo=TRUE}
 #violin plots for par_tau per type
 ggplot(data = data.w,
@@ -418,7 +437,9 @@ ggplot(data = data.w,
   xlab("type") +
   ylab("Tau") +
   theme_minimal()
-
+```
+#graph 13
+```{r, echo=TRUE}
 # line plot
 ggplot(data = data.w,
        mapping = aes(x = true_par_tau,
@@ -480,7 +501,7 @@ r.test(n = nrow(cormat.test.lam1.100),
 ```
 
 **Graphical analysis**
-
+### graph 14
 ```{r, echo=TRUE}
 #violin plots for true lambda per par_tau
 ggplot(data = data.w,
@@ -498,7 +519,9 @@ ggplot(data = data.w,
   xlab("Lambda") +
   ylab("Tau") +
   theme_minimal()
-
+```
+###graph 15
+```{r, echo=TRUE}
 # line plot
 ggplot(data = data.w,
        mapping = aes(x = true_par_tau,
