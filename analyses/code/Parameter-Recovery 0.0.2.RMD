@@ -205,7 +205,6 @@ r.test(n = nrow(cormat.test.d0n100),
        r34 = cor(cormat.test.d8n100$par_tau,
                  cormat.test.d8n100$true_par_tau,
                  method = "spearman"))
-
 ```
 
 **Graphical evaluation**
@@ -329,31 +328,42 @@ Shepard suggests, that of 70 possible combinations of elements characterized by 
 
 ```{r, echo=TRUE}
 # decision between marginalized vs. conditionized testing
-data.cor.rel[Var1 == "type" | Var2 == "type"]#influence on discount
+data.cor.rel[Var1 == "type" | Var2 == "type"]#influence on type
 ```
 
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #subset types
-cormat.test.t1 <- cormat.test[type == 1]
-cormat.test.t2 <- cormat.test[type == 2]
-cormat.test.t3 <- cormat.test[type == 3]
-cormat.test.t4 <- cormat.test[type == 4]
-cormat.test.t5 <- cormat.test[type == 5]
-cormat.test.t6 <- cormat.test[type == 6]
+cormat.test.30.1 <- cormat.test[nblock == 30 & type == 1]
+cormat.test.30.2 <- cormat.test[nblock == 30 & type == 2]
+cormat.test.30.3 <- cormat.test[nblock == 30 & type == 3]
+cormat.test.30.4 <- cormat.test[nblock == 30 & type == 4]
+cormat.test.30.5 <- cormat.test[nblock == 30 & type == 5]
+cormat.test.30.6 <- cormat.test[nblock == 30 & type == 6]
+
+cormat.test.100.1 <- cormat.test[nblock == 100 & type == 1]
+cormat.test.100.2 <- cormat.test[nblock == 100 & type == 2]
+cormat.test.100.3 <- cormat.test[nblock == 100 & type == 3]
+cormat.test.100.4 <- cormat.test[nblock == 100 & type == 4]
+cormat.test.100.5 <- cormat.test[nblock == 100 & type == 5]
+cormat.test.100.6 <- cormat.test[nblock == 100 & type == 6]
 ```
 
 ```{r, echo=TRUE}
 #calculate correlation test for all expressions of type
-cormat.res <- list()
 rtest.results <- list()
+cormat.res <- list()
+
 
 l = 1
 
 for (i in 1:6) {
   for (j in 1:6) {
+    for (k in c(30, 100)){
+      for (m in c(30, 100)) {
+
     #select components to apply r.test
-    component1 <- get(paste0("cormat.test.t", i))
-    component2 <- get(paste0("cormat.test.t", j))
+    component1 <- get(paste("cormat.test", k, i, sep = "."))
+    component2 <- get(paste("cormat.test", m, j, sep = "."))
     
     #calculate r.test and save it to rtest.results
     rtest.results[[l]] <- r.test(n = nrow(component1),
@@ -369,17 +379,24 @@ for (i in 1:6) {
     cormat.res[[l]] <-  data.table(
         component1 = paste0("type=", i),
         component2 = paste0("type=", j),
+        nblock_comp1 = k,
+        nblock_comp2 = m,
         p_value = round(rtest.results[[l]]$p, 4),
         z_score = round(rtest.results[[l]]$z, 4)
     )
-    
-    l = l + 1
+   
+      l = l + 1
+      }
+    }
   }
 }
 
 cormat.res <- rbindlist(cormat.res)
-cormat.res <- cormat.res[component1 != component2]
-print(cormat.res)
+cormat.res <- cormat.res[z_score != 0]
+
+cormat.res.rel <- cormat.res[p_value < 0.05]
+
+print(cormat.res.rel)
 ```
 
 **Graphical analysis**
@@ -396,7 +413,7 @@ ggplot(data = data.w,
                 y = true_par_tau), 
             color = "red", 
             size = 0.5) +
-  facet_wrap(~true_par_tau)+
+  facet_grid(nblock ~ true_par_tau)+
   ylim(0, 10) +
   xlab("type") +
   ylab("Tau") +
@@ -415,9 +432,9 @@ ggplot(data = data.w,
   stat_summary(aes(group = type),
                fun = median,
                geom = "line",
-               color = c(rep("blue", 36)
+               color = c(rep("blue", 72)
                          ))+
-  facet_wrap(~type)+
+  facet_grid(nblock ~ type)+
   ylim(0,10) +
   xlab("True tau") +
   ylab("Median of estimated tau") +
@@ -435,19 +452,30 @@ data.cor.rel[Var1 == "true_par_lambda" | Var2 == "true_par_lambda"]#influence on
 
 ```{r, echo=TRUE, results="hide", message=FALSE}
 #subset discounts
-cormat.test.lam1 <- cormat.test[true_par_lambda == 1]
-cormat.test.lam5 <- cormat.test[true_par_lambda == 5]
+cormat.test.lam1.30 <- cormat.test[nblock == 30 & true_par_lambda == 1]
+cormat.test.lam5.30 <- cormat.test[nblock == 30 & true_par_lambda == 5]
+cormat.test.lam1.100 <- cormat.test[nblock == 100 & true_par_lambda == 1]
+cormat.test.lam5.100 <- cormat.test[nblock == 100 & true_par_lambda == 5]
 ```
 
 ```{r, echo=TRUE}
 #correlation test
-r.test(n = nrow(cormat.test.lam1),
-       n2 = nrow(cormat.test.lam5),
-       r12 = cor(cormat.test.lam1$par_tau,
-                 cormat.test.lam1$true_par_tau,
+r.test(n = nrow(cormat.test.lam1.30),
+       n2 = nrow(cormat.test.lam5.30),
+       r12 = cor(cormat.test.lam1.30$par_tau,
+                 cormat.test.lam1.30$true_par_tau,
                  method = "spearman"),
-       r34 = cor(cormat.test.lam5$par_tau,
-                 cormat.test.lam5$true_par_tau,
+       r34 = cor(cormat.test.lam5.30$par_tau,
+                 cormat.test.lam5.30$true_par_tau,
+                 method = "spearman"))
+
+r.test(n = nrow(cormat.test.lam1.100),
+       n2 = nrow(cormat.test.lam5.100),
+       r12 = cor(cormat.test.lam1.100$par_tau,
+                 cormat.test.lam1.100$true_par_tau,
+                 method = "spearman"),
+       r34 = cor(cormat.test.lam5.100$par_tau,
+                 cormat.test.lam5.100$true_par_tau,
                  method = "spearman"))
 ```
 
@@ -465,7 +493,7 @@ ggplot(data = data.w,
                 y = true_par_tau), 
             color = "red", 
             size = 0.5) +
-  facet_wrap(~true_par_tau)+
+  facet_grid(nblock ~ true_par_tau)+
   ylim(0, 10) +
   xlab("Lambda") +
   ylab("Tau") +
@@ -485,8 +513,11 @@ ggplot(data = data.w,
                fun = median,
                geom = "line",
                color = c(rep("green", 6),  #lambda = 1
+                         rep("blue", 6),   #lambda = 5
+                         rep("green", 6),  #lambda = 1
                          rep("blue", 6)    #lambda = 5
                          ))+
+  facet_wrap(~nblock)+
   ylim(0,10) +
   xlab("True tau") +
   ylab("Median of estimated tau") +
