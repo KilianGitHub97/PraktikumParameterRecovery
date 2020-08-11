@@ -231,7 +231,7 @@ dat.type1.orig <- dat.type1.orig %>%
 ```{r, echo=TRUE}
 ggplot(
   data = data.type1,
-  mapping = aes(y = par_color), bins)+
+  mapping = aes(y = par_color))+
   geom_histogram(bins = 60) +
   geom_hline(aes(yintercept = true_par_color), color = "red") +
   geom_hline(aes(yintercept = med_type1_new), color="blue", linetype="dashed")+

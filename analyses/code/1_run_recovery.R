@@ -1,5 +1,5 @@
-install.packages("qgraph")
 # Libraries ---------------------------------------------------------------
+
 pkgs <- c("doParallel",
           "jtools",
           "pgirmess",
@@ -8,6 +8,7 @@ pkgs <- c("doParallel",
 lapply(pkgs, library, character.only = TRUE)
 
 # Setwd -------------------------------------------------------------------
+
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 source("utility_functions.R")
 
@@ -32,11 +33,13 @@ data_shep <- data_raw_shepard %>%
 
 
 # Parallel Setup ----------------------------------------------------------
+
 cluster <- makeCluster(8)
 registerDoParallel(cluster)
 foreach::getDoParWorkers()
 
 # Setup -------------------------------------------------------------------
+
 discounts <- c(0, 8)
 nblocks <- c(30, 100)
 types <- 1
@@ -52,7 +55,7 @@ true_pars <- expand.grid(
 runs <- 1:50 
 
 # Parameter recovery simulation -------------------------------------------
-# Parameter Recovery
+
 results <- recover(
   discounts = discounts,
   nblocks = nblocks,

@@ -8,6 +8,7 @@ library(cognitivemodels)
 # Parameter recovery simulation -------------------------------------------
 # Parameter Recovery
 recover <- function(discounts, nblocks, types, true_pars, runs, d = data_shep){
+  
   foreach(discount = discounts, .combine = "rbind", .packages = c("cognitivemodels", "data.table")) %:% 
     foreach (nblock = nblocks, .combine = "rbind"  ) %:% 
       foreach (type = types, .combine = "rbind"  ) %:% 
@@ -66,4 +67,5 @@ recover <- function(discounts, nblocks, types, true_pars, runs, d = data_shep){
       }
     }
   }
+  
 }
