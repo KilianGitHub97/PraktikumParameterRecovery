@@ -1,0 +1,177 @@
+---
+title: "Parameter Recovery GCM"
+author: "Jana Jarecki & Kilian Sennrich"
+date: "11 8 2020"
+output: 
+  html_document:
+    theme: united
+    toc: true
+    toc_float: true
+---
+```{r message=FALSE, include=FALSE, results="hide"}
+source("Analysis.R")
+```
+
+# 1. Exploration and Testing
+
+There are 31 cases, where the GCM could not find optimal free parameters.
+
+## 1.1 What interdependencies can be found between the variables?
+
+In the following, I compile a correlation matrix to see, whether there are interdependencies between different variables. Significant correlation indicates some kind of systematic dependency between the two variables involved (partial correlations). First, "row" and "run" columns are deleted from the data frame, that is because "run" is not expected to have significant influence and because all information of the "row" column if fully covered by the "true_par_lambda" and "true_par_tau" columns. Second, Spearman correlation is used to compile the correlation matrix. The nonparametric method is used, since not all the data is expected to meet criteria for pearson correlation. Third, correlation matrix is transformed to be in a more accessible format. Fourth, significant p-values are filtered. Knowing interdependencies gathers evidence for the decision to plot and test data either marginalized or conditioned. No correction method is used to control for alpha inflation, since p-values are not actively interpreted here. 
+Further, the results are visualized using correlation networks. Two correlation-networks are presented. The first one includes the parameters used to run the parameter recovery, the second one includes the recovered parameters. Since qgraph chooses linewidth relative to the considered correlation, relevant correlations are presented for further interpretation of the networks.
+
+**correlation network of the input parameters**
+
+```{r echo=FALSE}
+data.qgraph.pre
+```
+
+```{r echo=FALSE}
+qgraph(
+  data.qgraph.pre,
+  graph = "pcor",
+  layout = "spring")
+```
+
+**correlation network of the recovered parameters**
+
+```{r echo=FALSE}
+data.qgraph.post
+```
+
+```{r echo=FALSE}
+qgraph(
+  data.qgraph.post,
+  graph = "pcor",
+  layout = "spring")
+```
+
+### 1.2 Statistical validation of the inpact of the input parameters on the recovery of tau
+In the following, multiple z-standardized correlation tests are calculated to see, what effect input parameters nblock (nblo), discount (disc) and type (type) have on the recovery of tau. Significant p-values mean, that the correlations between the input variable of tau and the recovered variable of tau significantly differ with different manifestations of the input variable (nblock, type, discount).
+Further it is examined, which measurement suits best here. While the nature of the variables suggests spearman's rank correlations, doubts are raised whether the coefficient could be systematically biased. In fact, the machine learning algorithm underlying the GCM function overestimates the recovered tau drastically in about 5% of the cases (In 320 of 7185 cases, recovered tau is greater than 7). This can lead to systematic bias with spearman. Question was raised, whether Mean Squared Errors (MSE), could be a valuable alternative to the spearman correlation. 
+P-values are bonferroni corrected. New alpha level to beat is about 0.001. Possibility for alpha inflation is about 0.83. However there are some limitations coming with the adjusted p-values (see below)
+
+**significant p-values from spearman correlation**
+
+```{r echo=FALSE}
+results.spearman
+```
+
+**significant p-values from pearson correlation** (for comparison)
+
+```{r echo=FALSE}
+results.pearson
+```
+
+We see only differences between type 1, 2 and 6 and 3,4 and 5 are significant, suggesting that only different types of shepards categories moderate the recovery of tau.
+
+Limitations: To even get significant results, i first filtered the pvalues that are significant without bonferroni. Only in a second step i corrected the pvalues with bonferroni. I think the results are still accurate, because it pretty much goes with the visual results we obtain further down the page. I think to report it would be good to present a correlation table with corrected and uncorrected p values. Dividing every pvalue trough 34 results in a p value of 0.00147 that has to be passed by every group. Bonferroni is in my eyes a tradeoff between understanding the data propperly and statistical accuracy. I think in our case its ok to take a possibility of p = 0.83 to at least have one result that wrongfully reports statistical significance where there is none.
+
+# 2. Graphical analysis of the recovery of all parameters
+
+The main interest of the study was to understand the recovery of the tau parameter. However it is interesting to see, how the GCM function recovers the other parameters. In the following, the recovery of these parameters is visualized with histograms. The blue line indicates the median of the recovered parameter, the red line indicates the original parameter. The closer the to lines come to each other, the better was the recovery. 
+To better understand the graphs, conditioned presentation is advised. However, too many graphs can make interpretation more difficult. Therefore only Shepards types (As shown above) and the true input for tau are displayed separately.
+
+**Parameter b0**
+
+```{r echo=FALSE}
+recovery.b0
+```
+
+**Parameter b1**
+
+```{r echo=FALSE}
+recovery.b1
+```
+
+**Parameter size**
+
+```{r echo=FALSE}
+recovery.size
+```
+
+**Parameter color**
+
+```{r echo=FALSE}
+recovery.color
+```
+
+**Parameter shape**
+
+```{r echo=FALSE}
+recovery.shape
+```
+
+**Parameter lambda**
+
+```{r echo=FALSE}
+recovery.lambda
+```
+
+## 2.1 Impact of omitting the first 0 and 8 rows on recovering tau
+
+According to the GCM, omitting the first 3 or 8 rows should lead to better recovery of the tau parameter. Reason being, that the machine learning algorithm does not make accurate decisions on early rows of training. As known, only Shepards type has significant impact on the recovery of tau. Therefore it is the only parameter to be conditioned. Green line indicates discount = 0, blue line indicates discount = 8.
+The amount of values discounted by the algorithm has no significant impact on the recovery of tau. 
+
+**violin plot for "discount"**
+
+```{r echo=FALSE}
+violin.discount
+```
+
+**line plot for "discount"**
+
+```{r echo=FALSE}
+line.discount
+```
+
+
+## 2.2 Impact of training with multiple blocks on recovery of tau
+
+According to the GCM, the more repetitive blocks a subject will be able to learn with, the better the categorization accuracy should get. Therefore, with increasing blocks, a better recovery is expected. Again, graphs are being subset by type. Green line indicates nblock = 30, blue line indicates nblock = 100. 
+Nblock has no significant impact on the recovery of tau.
+
+**violinplot for "nblock"**
+
+```{r echo=FALSE}
+violin.nblock
+```
+
+**line plot for "nblock"**
+
+```{r echo=FALSE}
+line.nblock
+```
+
+## 2.3 ability of the GCM to grasp the difficulty of the categories on the tau parameter
+
+Shepard suggests, that of 70 possible combinations of elements characterized by 3 dimensions in psychological space, 6 basic types can be derived. The types vary in the dimensions, a subject has to focus on, and therefore can be put into an order of difficulty.Shepard suggests the following order of difficulty:  I < II < ( III, IV, V) < VI. If the GCM function works, depending on the type, goodness of recovery of tau paramter should imitate the suggested order. Unfortunately, this is not true, categories 3,4 and 5 seem to produce the best recovery.
+
+**violinplot for "type"**
+
+```{r echo=FALSE}
+violin.type
+```
+
+**lineplot for "type"**
+
+```{r echo=FALSE}
+line.type
+```
+
+## 2.4 Influence of Lambda on the recovery of Tau
+
+Lambda, the speed of learning (sensitivity), is considered to have a positive impact on the recovery of Tau. When a person learns quicker, the probability of implementing an action should be greater, especially with bigger Tau values. Everything in the section above was done with lambda = 1. Reason being, that in literature lambda is usually set to 1. Holding lambda at a constant also reduces complexity in interpretation of the graphs. 
+
+**violin plot for "lambda"**
+
+```{r echo=FALSE}
+violin.lambda
+```
+
+**lineplot for "lambda"**
+
+```{r echo=FALSE}
+line.lambda
+```

@@ -1,11 +1,8 @@
+
 # Libraries ---------------------------------------------------------------
 
-pkgs <- c("doParallel",
-          "jtools",
-          "pgirmess",
-          "tidyverse")
-
-lapply(pkgs, library, character.only = TRUE)
+library(tidyverse)
+library(doParallel)
 
 # Setwd -------------------------------------------------------------------
 
@@ -15,28 +12,52 @@ source("utility_functions.R")
 # Shepard dataframe -------------------------------------------------------
 
 data_raw_shepard <- data.frame(
-  size = as.factor( c("small", "small", "small", "small", "large", "large", "large", "large" )), 
-  shape = as.factor( c("triangle", "triangle", "square", "square", "triangle", "triangle", "square", "square" )), 
-  color = as.factor( c("black", "white", "black", "white", "black", "white", "black", "white")), 
-  cat_1 = c(0, 1, 0, 1, 0, 1, 0, 1), # c(0, 1)
-  cat_2 = c(0, 1, 1, 0, 0, 1, 1, 0), # c(0, 1)
-  cat_3 = c(0, 0, 1, 1, 0, 1, 0, 1), # c(0, 1)
-  cat_4 = c(0, 1, 1, 1, 0, 0, 0, 1), # c(0, 1)
-  cat_5 = c(0, 1, 1, 0, 0, 1, 0, 1), # c(0, 1)
-  cat_6 = c(1, 0, 0, 1, 0, 1, 1, 0) # c(0, 1)
+  size = as.factor(
+    c(
+      rep("small", 4),
+      rep("large", 4)
+      )
+    ), 
+  shape = as.factor(
+    c(
+      rep("triangle", 2),
+      rep("square", 2),
+      rep("triangle", 2),
+      rep("square", 2)
+    )
+  ),
+  color = as.factor(
+    rep(c("black", "white"), 4)
+    ), 
+  cat_1 = c(0, 1, 0, 1, 0, 1, 0, 1), 
+  cat_2 = c(0, 1, 1, 0, 0, 1, 1, 0), 
+  cat_3 = c(0, 0, 1, 1, 0, 1, 0, 1), 
+  cat_4 = c(0, 1, 1, 1, 0, 0, 0, 1), 
+  cat_5 = c(0, 1, 1, 0, 0, 1, 0, 1), 
+  cat_6 = c(1, 0, 0, 1, 0, 1, 1, 0) 
 )
 
 data_shep <- data_raw_shepard %>% 
-  mutate( size = recode(size, "small" = 0, "large" = 1),
-          shape = recode(shape, "triangle" = 0, "square" = 1),
-          color = recode(color, "black" = 0, "white" = 1))
-
+  mutate(
+    size = recode(
+      size,
+      "small" = 0,
+      "large" = 1),
+    shape = recode(
+      shape,
+      "triangle" = 0,
+      "square" = 1),
+    color = recode(
+      color,
+      "black" = 0,
+      "white" = 1)
+    )
 
 # Parallel Setup ----------------------------------------------------------
 
 cluster <- makeCluster(8)
 registerDoParallel(cluster)
-foreach::getDoParWorkers()
+getDoParWorkers()
 
 # Setup -------------------------------------------------------------------
 
@@ -64,5 +85,7 @@ results <- recover(
   runs = runs,
   d = data_shep)
 
-write.csv(results, "../../data/raw/results_type1.csv")
-saveRDS(results, file = "../../data/raw/results_type1.RDS")
+# Export ------------------------------------------------------------------
+
+write.csv(results, "../../data/raw/results.csv")
+saveRDS(results, file = "../../data/raw/results.RDS")
